@@ -18,6 +18,9 @@ import SyncSettingsScreen from "@/screens/settings/SyncSettingsScreen";
 import TTSSettingsScreen from "@/screens/settings/TTSSettingsScreen";
 import TranslationSettingsScreen from "@/screens/settings/TranslationSettingsScreen";
 import VectorModelSettingsScreen from "@/screens/settings/VectorModelSettingsScreen";
+import CodexNovelSettingsScreen from "@/screens/settings/CodexNovelSettingsScreen";
+import CodexNovelLibraryScreen from "@/screens/library/CodexNovelLibraryScreen";
+import OnlineReaderScreen from "@/screens/reader/OnlineReaderScreen";
 import { useSettingsStore } from "@/stores";
 /**
  * RootNavigator — top-level stack matching Tauri mobile App.tsx routes exactly.
@@ -30,6 +33,7 @@ export type RootStackParamList = {
   Onboarding: undefined;
   Tabs: undefined;
   Reader: { bookId: string; cfi?: string; highlight?: boolean; openTTS?: boolean };
+  OnlineReader: { bookId: string };
   BookDetails: { bookId: string };
   BookChat: { bookId: string; selectedText?: string; chapterTitle?: string };
   Stats: undefined;
@@ -41,6 +45,8 @@ export type RootStackParamList = {
   TTSSettings: undefined;
   TranslationSettings: undefined;
   SyncSettings: undefined;
+  CodexNovelSettings: undefined;
+  CodexNovelLibrary: undefined;
   About: undefined;
   Feedback: undefined;
   FeedbackDetail: { issueNumber: number; title: string };
@@ -106,6 +112,21 @@ export function RootNavigator() {
             <Stack.Screen name="TTSSettings" component={TTSSettingsScreen} />
             <Stack.Screen name="TranslationSettings" component={TranslationSettingsScreen} />
             <Stack.Screen name="SyncSettings" component={SyncSettingsScreen} />
+            <Stack.Screen
+              name="CodexNovelSettings"
+              component={CodexNovelSettingsScreen}
+              options={{ animation: "slide_from_right" }}
+            />
+            <Stack.Screen
+              name="CodexNovelLibrary"
+              component={CodexNovelLibraryScreen}
+              options={{ animation: "slide_from_right" }}
+            />
+            <Stack.Screen
+              name="OnlineReader"
+              component={OnlineReaderScreen}
+              options={{ animation: "slide_from_right" }}
+            />
             <Stack.Screen name="About" component={AboutScreen} />
             <Stack.Screen name="Feedback" component={FeedbackScreen} />
             <Stack.Screen

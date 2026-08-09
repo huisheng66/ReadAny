@@ -18,7 +18,7 @@
 
 ## 已知限制
 
-1. **移动端 Expo**：API 层已在 core，UI 尚未接 OnlineReader / 书城（R2 优先桌面）。
+1. **移动端 Expo**：已接 `CodexNovelSettings` / `CodexNovelLibrary` / `OnlineReader`（与桌面同 core API）。
 2. **在线书不走 foliate**：无 EPUB CFI 高亮链；书签用 chapterNumber+offsetRatio。
 3. **WebDAV**：`codexnovel://` 文件路径应跳过文件同步（若上传失败可忽略）。
 4. **TOC 304 缓存** 时 `next` 可能为空，UI 用 `chapter.next` 控制下一章按钮。

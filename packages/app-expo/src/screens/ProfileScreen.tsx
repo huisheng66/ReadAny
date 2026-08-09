@@ -75,6 +75,8 @@ type ProfileMenuRoute = Extract<
   | "AppearanceSettings"
   | "FontSettings"
   | "SyncSettings"
+  | "CodexNovelSettings"
+  | "CodexNovelLibrary"
   | "AISettings"
   | "TTSSettings"
   | "TranslationSettings"
@@ -435,6 +437,16 @@ export function ProfileScreen() {
             route: "FontSettings" as const,
           },
           { icon: CloudIcon, label: t("settings.sync", "同步"), route: "SyncSettings" as const },
+          {
+            icon: CloudIcon,
+            label: t("codexnovel.settingsTab", "在线书库"),
+            route: "CodexNovelSettings" as const,
+          },
+          {
+            icon: BookOpenIcon,
+            label: t("codexnovel.store", "在线书城"),
+            route: "CodexNovelLibrary" as const,
+          },
         ],
       },
       {
