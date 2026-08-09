@@ -59,3 +59,50 @@ export type {
   CodexNovelSession,
 } from "./types";
 export { CODEXNOVEL_KV, CODEXNOVEL_KV_PREFIX } from "./types";
+
+export {
+  listCodexNovelBooks,
+  getCodexNovelBook,
+  getCodexNovelToc,
+  getCodexNovelChapter,
+  type ListBooksParams,
+  type ListBooksResult,
+  type GetChapterResult,
+} from "./books";
+export {
+  listCodexNovelShelf,
+  addCodexNovelToShelf,
+  removeCodexNovelFromShelf,
+  listCodexNovelShelfUpdates,
+  type ListShelfResult,
+  type ShelfUpdatesResult,
+} from "./shelf";
+export {
+  CODEXNOVEL_BOOK_ID_PREFIX,
+  CODEXNOVEL_FILE_SCHEME,
+  CODEXNOVEL_TAG,
+  toLocalCodexNovelBookId,
+  parseCodexNovelBookId,
+  isCodexNovelBookId,
+  isCodexNovelBook,
+  codexNovelFilePath,
+  encodeCodexNovelCfi,
+  decodeCodexNovelCfi,
+  progressRatioFromChapter,
+  bookFromCodexNovelSummary,
+  bookFromCodexNovelShelfItem,
+  type CodexNovelLocalMeta,
+} from "./mapping";
+export {
+  ensureCodexNovelMetaTable,
+  upsertCodexNovelLocalMeta,
+  getCodexNovelLocalMetaByNovelId,
+  getCodexNovelLocalMetaByBookId,
+  listCodexNovelLocalMeta,
+  deleteCodexNovelLocalMeta,
+} from "./local-meta";
+export {
+  syncCodexNovelShelfToLibrary,
+  removeCodexNovelFromLocalLibrary,
+  type SyncShelfResult,
+} from "./shelf-sync";

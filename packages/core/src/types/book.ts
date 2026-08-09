@@ -34,7 +34,9 @@ export type BookFormat =
   | "fb2"
   | "fbz"
   | "txt"
-  | "umd";
+  | "umd"
+  /** Online chapter-stream book (CodexNovel /api/v1) */
+  | "online";
 
 export interface Book {
   id: string;

@@ -121,6 +121,24 @@ const migrations: Migration[] = [
       "ALTER TABLE threads ADD COLUMN memory_message_count INTEGER DEFAULT 0",
     ],
   },
+  {
+    version: 14,
+    description: "CodexNovel online books side table",
+    up: [
+      `CREATE TABLE IF NOT EXISTS codexnovel_books (
+        book_id TEXT PRIMARY KEY,
+        novel_id INTEGER NOT NULL UNIQUE,
+        last_chapter_number INTEGER NOT NULL DEFAULT 0,
+        last_chapter_title TEXT NOT NULL DEFAULT '',
+        novel_updated_at TEXT,
+        toc_sync_since TEXT,
+        has_update INTEGER NOT NULL DEFAULT 0,
+        shelf_added INTEGER NOT NULL DEFAULT 1,
+        updated_at INTEGER NOT NULL
+      )`,
+      "CREATE INDEX IF NOT EXISTS idx_codexnovel_books_novel ON codexnovel_books(novel_id)",
+    ],
+  },
 ];
 
 /** Run pending migrations */

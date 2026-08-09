@@ -89,6 +89,17 @@ export async function openDesktopBook({
     return false;
   }
 
+  // Online chapter-stream books (CodexNovel) — reader lands in R2
+  if (book.format === "online" || book.filePath?.startsWith("codexnovel://")) {
+    toast.message(
+      t(
+        "codexnovel.readerComingSoon",
+        "在线阅读器将在下一期启用；书已加入本地书架，可先在「在线书库」管理。",
+      ),
+    );
+    return false;
+  }
+
   if (book.syncStatus === "remote") {
     const syncStore = useSyncStore.getState();
     if (!syncStore.config) {

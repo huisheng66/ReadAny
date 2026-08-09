@@ -22,7 +22,7 @@
 3. **计划**：本目录 R0–R4
 4. **实现**：
    - [x] R0 — `packages/core/src/codexnovel/`（client / auth / token-store）
-   - [ ] R1 — 书库与书架
+   - [x] R1 — 书库与书架 + 桌面设置/书城
    - [ ] R2 — 阅读与进度
    - [ ] R3 — 追更
    - [ ] R4 — 书签 / ops / 收尾

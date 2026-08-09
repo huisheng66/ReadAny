@@ -14,6 +14,7 @@ import en_stats from "./locales/en/stats.json";
 import en_onboarding from "./locales/en/onboarding.json";
 import en_profile from "./locales/en/profile.json";
 import en_misc from "./locales/en/misc.json";
+import en_codexnovel from "./locales/en/codexnovel.json";
 
 // --- Simplified Chinese ---
 import zh_common from "./locales/zh/common.json";
@@ -28,6 +29,7 @@ import zh_stats from "./locales/zh/stats.json";
 import zh_onboarding from "./locales/zh/onboarding.json";
 import zh_profile from "./locales/zh/profile.json";
 import zh_misc from "./locales/zh/misc.json";
+import zh_codexnovel from "./locales/zh/codexnovel.json";
 
 // --- Traditional Chinese ---
 import zhTW_common from "./locales/zh-TW/common.json";
@@ -100,8 +102,8 @@ import es_profile from "./locales/es/profile.json";
 import es_misc from "./locales/es/misc.json";
 
 // --- Merge modules per language ---
-const en = { ...en_common, ...en_library, ...en_reader, ...en_chat, ...en_notes, ...en_settings, ...en_translation, ...en_tts, ...en_stats, ...en_onboarding, ...en_profile, ...en_misc };
-const zh = { ...zh_common, ...zh_library, ...zh_reader, ...zh_chat, ...zh_notes, ...zh_settings, ...zh_translation, ...zh_tts, ...zh_stats, ...zh_onboarding, ...zh_profile, ...zh_misc };
+const en = { ...en_common, ...en_library, ...en_reader, ...en_chat, ...en_notes, ...en_settings, ...en_translation, ...en_tts, ...en_stats, ...en_onboarding, ...en_profile, ...en_misc, ...en_codexnovel };
+const zh = { ...zh_common, ...zh_library, ...zh_reader, ...zh_chat, ...zh_notes, ...zh_settings, ...zh_translation, ...zh_tts, ...zh_stats, ...zh_onboarding, ...zh_profile, ...zh_misc, ...zh_codexnovel };
 const zhTW = { ...zhTW_common, ...zhTW_library, ...zhTW_reader, ...zhTW_chat, ...zhTW_notes, ...zhTW_settings, ...zhTW_translation, ...zhTW_tts, ...zhTW_stats, ...zhTW_onboarding, ...zhTW_profile, ...zhTW_misc };
 const ja = { ...ja_common, ...ja_library, ...ja_reader, ...ja_chat, ...ja_notes, ...ja_settings, ...ja_translation, ...ja_tts, ...ja_stats, ...ja_onboarding, ...ja_profile, ...ja_misc };
 const ko = { ...ko_common, ...ko_library, ...ko_reader, ...ko_chat, ...ko_notes, ...ko_settings, ...ko_translation, ...ko_tts, ...ko_stats, ...ko_onboarding, ...ko_profile, ...ko_misc };

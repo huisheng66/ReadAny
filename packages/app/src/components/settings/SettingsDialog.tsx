@@ -18,6 +18,7 @@ import { SyncSettings } from "./SyncSettings";
 import { TTSSettings } from "./TTSSettings";
 import { TranslationSettings } from "./TranslationSettings";
 import { VectorModelSettings } from "./VectorModelSettings";
+import { CodexNovelSettings } from "./CodexNovelSettings";
 
 interface SettingsDialogProps {
   open: boolean;
@@ -33,6 +34,7 @@ const TAB_IDS: SettingsTab[] = [
   "tts",
   "translation",
   "sync",
+  "codexnovel",
   "externalAi",
   "feedback",
   "about",
@@ -46,6 +48,7 @@ const TAB_KEYS: Record<SettingsTab, string> = {
   tts: "settings.tts",
   translation: "settings.translationTab",
   sync: "settings.sync",
+  codexnovel: "codexnovel.settingsTab",
   externalAi: "settings.externalAi",
   feedback: "feedback.title",
   about: "settings.about",
@@ -123,6 +126,7 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
             {settingsTab === "tts" && <TTSSettings />}
             {settingsTab === "translation" && <TranslationSettings />}
             {settingsTab === "sync" && <SyncSettings />}
+            {settingsTab === "codexnovel" && <CodexNovelSettings />}
             {settingsTab === "externalAi" && <ExternalAISettings />}
             {settingsTab === "feedback" && <FeedbackSettings />}
             {settingsTab === "about" && <AboutSettings />}

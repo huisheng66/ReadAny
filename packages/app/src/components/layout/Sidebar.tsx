@@ -13,6 +13,7 @@ import {
   ChevronDown,
   ChevronRight,
   ChevronsUpDown,
+  Cloud,
   Hash,
   HelpCircle,
   MessageSquare,
@@ -113,6 +114,15 @@ export function HomeSidebar() {
     // Use a special convention: we set activeTab to "stats" but type is home
     // Actually, let's keep it simple — stats is a home sub-view triggered by a special tab id
     setActiveTab("stats");
+  };
+
+  const handleCodexNovelClick = () => {
+    addTab({
+      id: "codexnovel",
+      type: "home" as const,
+      title: t("codexnovel.store", "在线书城"),
+    });
+    setActiveTab("codexnovel");
   };
 
   return (
@@ -443,6 +453,16 @@ export function HomeSidebar() {
         >
           <BarChart3 size={16} className="shrink-0" />
           <span className="text-sm">{t("stats.title")}</span>
+        </button>
+        <button
+          type="button"
+          className={`flex w-full items-center gap-2 rounded-md p-1 py-1 text-left text-sm hover:bg-muted hover:text-foreground ${
+            activeTabId === "codexnovel" ? "bg-muted text-foreground" : "text-muted-foreground"
+          }`}
+          onClick={handleCodexNovelClick}
+        >
+          <Cloud size={16} className="shrink-0" />
+          <span className="text-sm">{t("codexnovel.store", "在线书城")}</span>
         </button>
         <a
           href={`https://codedogqby.github.io/ReadAny/${i18n.language === "zh" ? "zh/" : ""}support/`}
