@@ -102,25 +102,52 @@ export function CodexNovelSettings() {
     }
   };
 
+  const formatAuthError = (err: unknown): string => {
+    if (err instanceof CodexNovelError) {
+      if (err.code === "UNAUTHORIZED") {
+        return t(
+          "codexnovel.loginUnauthorized",
+          "用户名或密码错误。若还没有账号，请先点「注册」（用户名仅字母数字下划线，密码至少 8 位）",
+        );
+      }
+      if (err.code === "CONFLICT") {
+        return t("codexnovel.usernameTaken", "用户名已被占用，请换一个或直接登录");
+      }
+      if (err.code === "CONFIG" || err.code === "NETWORK") {
+        return `${err.message}（请确认服务器地址为 http://127.0.0.1:3008 且 codexnovel 已启动）`;
+      }
+      return err.message;
+    }
+    return err instanceof Error ? err.message : String(err);
+  };
+
   const handleLogin = async () => {
+    if (!baseUrl.trim()) {
+      toast.error(t("codexnovel.baseUrlRequired", "请先填写服务器地址"));
+      return;
+    }
     setBusy(true);
     try {
       await loginCodexNovel({
         username: username.trim(),
         password,
         deviceName: deviceName.trim() || "ReadAny Desktop",
-        baseUrl: baseUrl.trim() || undefined,
+        baseUrl: baseUrl.trim(),
       });
       await afterAuth();
       toast.success(t("codexnovel.loginOk", "登录成功"));
     } catch (err) {
-      toast.error(err instanceof CodexNovelError ? err.message : String(err));
+      toast.error(formatAuthError(err));
     } finally {
       setBusy(false);
     }
   };
 
   const handleRegister = async () => {
+    if (!baseUrl.trim()) {
+      toast.error(t("codexnovel.baseUrlRequired", "请先填写服务器地址"));
+      return;
+    }
     setBusy(true);
     try {
       await registerCodexNovel({
@@ -128,12 +155,12 @@ export function CodexNovelSettings() {
         password,
         displayName: username.trim(),
         deviceName: deviceName.trim() || "ReadAny Desktop",
-        baseUrl: baseUrl.trim() || undefined,
+        baseUrl: baseUrl.trim(),
       });
       await afterAuth();
       toast.success(t("codexnovel.registerOk", "注册并登录成功"));
     } catch (err) {
-      toast.error(err instanceof CodexNovelError ? err.message : String(err));
+      toast.error(formatAuthError(err));
     } finally {
       setBusy(false);
     }
@@ -214,6 +241,12 @@ export function CodexNovelSettings() {
           {t(
             "codexnovel.desc",
             "连接 codexnovel /api/v1，登录后可浏览书城、同步书架与阅读进度。",
+          )}
+        </p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          {t(
+            "codexnovel.accountHint",
+            "还没有账号请先「注册」。用户名仅英文/数字/下划线 3–32 位，密码至少 8 位。",
           )}
         </p>
       </div>
