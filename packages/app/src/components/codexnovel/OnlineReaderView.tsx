@@ -10,6 +10,7 @@ import {
   flushProgressQueue,
   getCodexNovelProgress,
   applyCodexNovelTocDelta,
+  createCodexNovelBookmark,
   loadCodexNovelChapter,
   parseCodexNovelBookId,
   progressRatioFromChapter,
@@ -17,7 +18,7 @@ import {
   type LoadedChapter,
 } from "@readany/core/codexnovel";
 import { throttle } from "@readany/core/utils";
-import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import { BookmarkPlus, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -202,6 +203,22 @@ export function OnlineReaderView({ bookId }: OnlineReaderViewProps) {
     setChapterNumber(next);
   };
 
+  const addBookmark = async () => {
+    if (!novelId) return;
+    try {
+      await createCodexNovelBookmark({
+        novelId,
+        chapterNumber: chapterRef.current,
+        offsetRatio: offsetRef.current,
+        note: chapter?.title || "",
+        color: "yellow",
+      });
+      toast.success(t("codexnovel.bookmarkAdded", "书签已添加"));
+    } catch (err) {
+      toast.error(err instanceof CodexNovelError ? err.message : String(err));
+    }
+  };
+
   if (!novelId) {
     return (
       <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
@@ -223,6 +240,10 @@ export function OnlineReaderView({ bookId }: OnlineReaderViewProps) {
             {chapter?.fromCache ? ` · ${t("codexnovel.cached", "缓存")}` : ""}
           </div>
         </div>
+        <Button type="button" size="sm" variant="ghost" disabled={loading} onClick={() => void addBookmark()}>
+          <BookmarkPlus className="h-4 w-4" />
+          <span className="ml-1 hidden sm:inline">{t("codexnovel.bookmark", "书签")}</span>
+        </Button>
         <Button
           type="button"
           size="sm"

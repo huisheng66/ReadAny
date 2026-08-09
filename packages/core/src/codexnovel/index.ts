@@ -137,3 +137,27 @@ export {
   type TocDeltaResult,
   type ShelfCheckResult,
 } from "./updates";
+export {
+  listCodexNovelBookmarks,
+  createCodexNovelBookmark,
+  updateCodexNovelBookmark,
+  deleteCodexNovelBookmark,
+  type CodexNovelBookmark,
+} from "./bookmarks";
+export {
+  getCodexNovelOps,
+  getCachedCodexNovelOps,
+  compareSemver,
+  checkCodexNovelClientOps,
+  type CodexNovelOps,
+  type OpsCheckResult,
+} from "./ops";
+export {
+  ensureCodexNovelDeviceId,
+  registerCodexNovelDevice,
+  listCodexNovelDevices,
+  listCodexNovelUpdateNotices,
+  getPreferredDeviceName,
+  type CodexNovelDevice,
+  type UpdateNotice,
+} from "./devices";

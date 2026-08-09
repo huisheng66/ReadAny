@@ -37,6 +37,12 @@
     "loadingChapter": "Loading chapter…",
     "cached": "cached",
     "hasUpdate": "Update",
-    "updatesFound": "{{count}} book(s) updated"
+    "updatesFound": "{{count}} book(s) updated",
+    "bookmark": "Bookmark",
+    "bookmarkAdded": "Bookmark added",
+    "checkOps": "Announcement / update policy",
+    "opsOk": "No announcement; version policy OK",
+    "needsUpdate": "Client is below server minimum (current {{version}})",
+    "forceUpdate": "A forced client update is required"
   }
 }

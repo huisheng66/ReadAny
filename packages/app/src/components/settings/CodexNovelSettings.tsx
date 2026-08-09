@@ -11,11 +11,14 @@ import {
   getCodexNovelSession,
   getStoredBaseUrl,
   getStoredDeviceName,
+  checkCodexNovelClientOps,
   loginCodexNovel,
   logoutCodexNovel,
   registerCodexNovel,
+  registerCodexNovelDevice,
   syncCodexNovelShelfToLibrary,
 } from "@readany/core/codexnovel";
+import { getPlatformService } from "@readany/core/services";
 import { Cloud, LogIn, LogOut, RefreshCw, Server } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -33,6 +36,7 @@ export function CodexNovelSettings() {
   const [userLabel, setUserLabel] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [healthLabel, setHealthLabel] = useState<string | null>(null);
+  const [opsLabel, setOpsLabel] = useState<string | null>(null);
 
   const refreshSession = useCallback(async () => {
     const [url, session, dev] = await Promise.all([
@@ -86,6 +90,18 @@ export function CodexNovelSettings() {
     }
   };
 
+  const afterAuth = async () => {
+    await refreshSession();
+    try {
+      await registerCodexNovelDevice({
+        platform: "desktop",
+        deviceName: deviceName.trim() || "ReadAny Desktop",
+      });
+    } catch {
+      // non-fatal
+    }
+  };
+
   const handleLogin = async () => {
     setBusy(true);
     try {
@@ -95,7 +111,7 @@ export function CodexNovelSettings() {
         deviceName: deviceName.trim() || "ReadAny Desktop",
         baseUrl: baseUrl.trim() || undefined,
       });
-      await refreshSession();
+      await afterAuth();
       toast.success(t("codexnovel.loginOk", "登录成功"));
     } catch (err) {
       toast.error(err instanceof CodexNovelError ? err.message : String(err));
@@ -114,10 +130,42 @@ export function CodexNovelSettings() {
         deviceName: deviceName.trim() || "ReadAny Desktop",
         baseUrl: baseUrl.trim() || undefined,
       });
-      await refreshSession();
+      await afterAuth();
       toast.success(t("codexnovel.registerOk", "注册并登录成功"));
     } catch (err) {
       toast.error(err instanceof CodexNovelError ? err.message : String(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleCheckOps = async () => {
+    setBusy(true);
+    try {
+      if (baseUrl.trim()) await configureCodexNovelBaseUrl(baseUrl);
+      const version = await getPlatformService().getAppVersion();
+      const result = await checkCodexNovelClientOps(version, baseUrl || undefined);
+      const parts: string[] = [];
+      if (result.announcementText) parts.push(result.announcementText);
+      if (result.needsUpdate) {
+        parts.push(
+          result.updateMessage ||
+            t("codexnovel.needsUpdate", "客户端版本低于服务器要求（当前 {{version}}）", {
+              version,
+            }),
+        );
+      }
+      if (!parts.length) parts.push(t("codexnovel.opsOk", "无公告，版本策略正常"));
+      setOpsLabel(parts.join(" · "));
+      if (result.forceUpdate) {
+        toast.error(result.updateMessage || t("codexnovel.forceUpdate", "需要强制更新客户端"));
+      } else if (result.announcementText) {
+        toast.message(result.announcementText);
+      } else {
+        toast.success(t("codexnovel.opsOk", "无公告，版本策略正常"));
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : String(err));
     } finally {
       setBusy(false);
     }
@@ -188,10 +236,14 @@ export function CodexNovelSettings() {
           <Button type="button" size="sm" variant="outline" disabled={busy} onClick={handleTest}>
             {t("codexnovel.testConnection", "测试连接")}
           </Button>
+          <Button type="button" size="sm" variant="outline" disabled={busy} onClick={handleCheckOps}>
+            {t("codexnovel.checkOps", "公告 / 强更")}
+          </Button>
         </div>
         {healthLabel ? (
           <p className="text-xs text-muted-foreground">{healthLabel}</p>
         ) : null}
+        {opsLabel ? <p className="text-xs text-muted-foreground">{opsLabel}</p> : null}
       </section>
 
       <section className="space-y-2">

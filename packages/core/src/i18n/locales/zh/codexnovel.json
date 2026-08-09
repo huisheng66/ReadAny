@@ -37,6 +37,12 @@
     "loadingChapter": "加载章节…",
     "cached": "缓存",
     "hasUpdate": "更新",
-    "updatesFound": "{{count}} 本有更新"
+    "updatesFound": "{{count}} 本有更新",
+    "bookmark": "书签",
+    "bookmarkAdded": "书签已添加",
+    "checkOps": "公告 / 强更",
+    "opsOk": "无公告，版本策略正常",
+    "needsUpdate": "客户端版本低于服务器要求（当前 {{version}}）",
+    "forceUpdate": "需要强制更新客户端"
   }
 }

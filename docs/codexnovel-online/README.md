@@ -6,6 +6,7 @@
 |------|------|
 | [01-architecture.md](./01-architecture.md) | 目标、差异、模块边界、进度/缓存模型 |
 | [02-implementation-roadmap.md](./02-implementation-roadmap.md) | R0–R4 分期、验收、提交约定 |
+| [03-client-api-notes.md](./03-client-api-notes.md) | 实现偏差与联调说明 |
 
 ## 仓库与分支
 
@@ -25,7 +26,7 @@
    - [x] R1 — 书库与书架 + 桌面设置/书城
    - [x] R2 — 章节阅读 + 缓存 + 进度 LWW/batch
    - [x] R3 — TOC 增量与追更
-   - [ ] R4 — 书签 / ops / 收尾
+   - [x] R4 — 书签 / ops / 设备 / 收尾
 
 ## 开发命令
 
