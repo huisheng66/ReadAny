@@ -19,6 +19,7 @@ import { useDownloadProgressStore } from "@/stores/download-progress-store";
 import { useLibraryStore } from "@/stores/library-store";
 import { useReaderStore } from "@/stores/reader-store";
 import { useVectorModelStore } from "@/stores/vector-model-store";
+import { getCodexNovelLocalMetaByBookId, isCodexNovelBook } from "@readany/core/codexnovel";
 import type { Book, VectorizeProgress } from "@readany/core/types";
 import { getBookProgressPercent } from "@readany/core/utils";
 import {
@@ -77,7 +78,26 @@ export const BookCard = memo(function BookCard({
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showReindexConfirm, setShowReindexConfirm] = useState(false);
   const [preserveDataOnDelete, setPreserveDataOnDelete] = useState(true);
+  const [hasOnlineUpdate, setHasOnlineUpdate] = useState(false);
   const coverRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isCodexNovelBook(book)) {
+      setHasOnlineUpdate(false);
+      return;
+    }
+    let cancelled = false;
+    getCodexNovelLocalMetaByBookId(book.id)
+      .then((meta) => {
+        if (!cancelled) setHasOnlineUpdate(Boolean(meta?.hasUpdate));
+      })
+      .catch(() => {
+        if (!cancelled) setHasOnlineUpdate(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [book.id, book.format, book.updatedAt]);
   const imageRef = useRef<HTMLImageElement>(null);
   const menuBtnRef = useRef<HTMLButtonElement>(null);
   const [menuPos, setMenuPos] = useState<{ x: number; y: number } | null>(null);
@@ -561,6 +581,11 @@ export const BookCard = memo(function BookCard({
 
         {/* Status row */}
         <div className="mt-0.5 flex items-center justify-between" style={{ minHeight: "14px" }}>
+          {hasOnlineUpdate ? (
+            <span className="rounded bg-primary/15 px-1 py-0.5 text-[10px] font-medium text-primary">
+              {t("codexnovel.hasUpdate", "更新")}
+            </span>
+          ) : null}
           {progressPct > 0 && progressPct < 100 ? (
             <span className="text-[10px] tabular-nums text-muted-foreground">{progressPct}%</span>
           ) : progressPct >= 100 ? (

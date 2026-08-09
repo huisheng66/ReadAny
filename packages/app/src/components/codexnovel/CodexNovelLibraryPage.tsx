@@ -8,6 +8,7 @@ import { useAppStore } from "@/stores/app-store";
 import {
   CodexNovelError,
   addCodexNovelToShelf,
+  checkCodexNovelShelfUpdates,
   getStoredBaseUrl,
   isCodexNovelLoggedIn,
   listCodexNovelBooks,
@@ -98,12 +99,22 @@ export function CodexNovelLibraryPage() {
     setLoading(true);
     try {
       const result = await syncCodexNovelShelfToLibrary();
+      let updateCount = 0;
+      try {
+        const updates = await checkCodexNovelShelfUpdates();
+        updateCount = updates.updatedNovelIds.length;
+      } catch {
+        // optional
+      }
       await loadBooks();
       toast.success(
         t("codexnovel.shelfSynced", "书架已同步：新增 {{added}}，更新 {{updated}}", {
           added: result.added,
           updated: result.updated,
-        }),
+        }) +
+          (updateCount
+            ? ` · ${t("codexnovel.updatesFound", "{{count}} 本有更新", { count: updateCount })}`
+            : ""),
       );
     } catch (err) {
       toast.error(err instanceof CodexNovelError ? err.message : String(err));
@@ -111,6 +122,26 @@ export function CodexNovelLibraryPage() {
       setLoading(false);
     }
   };
+
+  // Light poll when page becomes ready and logged in
+  useEffect(() => {
+    if (!loggedIn) return;
+    let cancelled = false;
+    const run = async () => {
+      try {
+        await checkCodexNovelShelfUpdates();
+        if (!cancelled) await loadBooks();
+      } catch {
+        // ignore
+      }
+    };
+    void run();
+    const timer = window.setInterval(() => void run(), 5 * 60 * 1000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [loggedIn, loadBooks]);
 
   if (!ready) {
     return (

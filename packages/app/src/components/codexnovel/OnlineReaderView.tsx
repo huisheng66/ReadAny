@@ -9,6 +9,7 @@ import {
   encodeCodexNovelCfi,
   flushProgressQueue,
   getCodexNovelProgress,
+  applyCodexNovelTocDelta,
   loadCodexNovelChapter,
   parseCodexNovelBookId,
   progressRatioFromChapter,
@@ -94,6 +95,12 @@ export function OnlineReaderView({ bookId }: OnlineReaderViewProps) {
 
     (async () => {
       await flushProgressQueue();
+      // Refresh TOC delta / invalidate changed chapter caches when opening
+      try {
+        await applyCodexNovelTocDelta(novelId);
+      } catch {
+        // offline or first open without since — ignore
+      }
       const local = decodeCodexNovelCfi(book?.currentCfi);
       let startCh = local?.chapterNumber || 1;
       let startOff = local?.offsetRatio || 0;

@@ -126,3 +126,14 @@ export {
   type ProgressQueueItem,
 } from "./progress";
 export { loadCodexNovelChapter, type LoadedChapter } from "./chapter-loader";
+export {
+  getCodexNovelTocDelta,
+  checkCodexNovelShelfUpdates,
+  applyCodexNovelTocDelta,
+  listLocalUpdateBadges,
+  getLastShelfCheckAt,
+  setLastShelfCheckAt,
+  cacheTocPage,
+  type TocDeltaResult,
+  type ShelfCheckResult,
+} from "./updates";

@@ -35,6 +35,8 @@
     "readerComingSoon": "Online reader arrives next phase; the book is on your local shelf.",
     "invalidBook": "Invalid online book",
     "loadingChapter": "Loading chapter…",
-    "cached": "cached"
+    "cached": "cached",
+    "hasUpdate": "Update",
+    "updatesFound": "{{count}} book(s) updated"
   }
 }
