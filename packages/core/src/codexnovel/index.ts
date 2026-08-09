@@ -106,3 +106,23 @@ export {
   removeCodexNovelFromLocalLibrary,
   type SyncShelfResult,
 } from "./shelf-sync";
+export {
+  readChapterCache,
+  writeChapterCache,
+  invalidateChapterCache,
+  type CachedChapter,
+} from "./cache";
+export {
+  getCodexNovelProgress,
+  putCodexNovelProgress,
+  putCodexNovelProgressBatch,
+  loadProgressQueue,
+  enqueueProgress,
+  flushProgressQueue,
+  saveCodexNovelProgress,
+  type ProgressPutInput,
+  type ProgressPutResult,
+  type ProgressBatchResult,
+  type ProgressQueueItem,
+} from "./progress";
+export { loadCodexNovelChapter, type LoadedChapter } from "./chapter-loader";

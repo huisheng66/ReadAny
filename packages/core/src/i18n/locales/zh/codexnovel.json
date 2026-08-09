@@ -32,6 +32,9 @@
     "addedToShelf": "已加入书架",
     "removedFromShelf": "已移出书架",
     "pageInfo": "第 {{page}} / {{totalPages}} 页 · 共 {{total}} 本",
-    "readerComingSoon": "在线阅读器将在下一期启用；书已加入本地书架，可先在「在线书库」管理。"
+    "readerComingSoon": "在线阅读器将在下一期启用；书已加入本地书架，可先在「在线书库」管理。",
+    "invalidBook": "无效的在线书籍",
+    "loadingChapter": "加载章节…",
+    "cached": "缓存"
   }
 }

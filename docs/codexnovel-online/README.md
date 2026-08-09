@@ -23,7 +23,7 @@
 4. **实现**：
    - [x] R0 — `packages/core/src/codexnovel/`（client / auth / token-store）
    - [x] R1 — 书库与书架 + 桌面设置/书城
-   - [ ] R2 — 阅读与进度
+   - [x] R2 — 章节阅读 + 缓存 + 进度 LWW/batch
    - [ ] R3 — 追更
    - [ ] R4 — 书签 / ops / 收尾
 

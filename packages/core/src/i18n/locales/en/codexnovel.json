@@ -32,6 +32,9 @@
     "addedToShelf": "Added to shelf",
     "removedFromShelf": "Removed from shelf",
     "pageInfo": "Page {{page}} / {{totalPages}} · {{total}} books",
-    "readerComingSoon": "Online reader arrives next phase; the book is on your local shelf."
+    "readerComingSoon": "Online reader arrives next phase; the book is on your local shelf.",
+    "invalidBook": "Invalid online book",
+    "loadingChapter": "Loading chapter…",
+    "cached": "cached"
   }
 }

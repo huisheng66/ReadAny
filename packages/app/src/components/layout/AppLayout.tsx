@@ -23,6 +23,7 @@ import { CodexNovelLibraryPage } from "@/components/codexnovel/CodexNovelLibrary
 import { NotesPage } from "@/components/notes/NotesPage";
 import { OnboardingModal } from "@/components/onboarding/OnboardingModal";
 import { ReaderView, evictBlobCache } from "@/components/reader/ReaderView";
+import { OnlineReaderView } from "@/components/codexnovel/OnlineReaderView";
 import { SettingsDialog } from "@/components/settings/SettingsDialog";
 import { MissingBookPromptDialog } from "@/components/shared/MissingBookPromptDialog";
 import { ReadingStatsPanel } from "@/components/stats/ReadingStatsPanel";
@@ -393,6 +394,9 @@ export function AppLayout() {
                   progress={readerStoreTabs[tab.id]?.progress}
                   t={t}
                 />
+              ) : books.find((b) => b.id === tab.bookId)?.format === "online" ||
+                books.find((b) => b.id === tab.bookId)?.filePath?.startsWith("codexnovel://") ? (
+                <OnlineReaderView bookId={tab.bookId} tabId={tab.id} />
               ) : (
                 <ReaderView bookId={tab.bookId} tabId={tab.id} />
               )}
