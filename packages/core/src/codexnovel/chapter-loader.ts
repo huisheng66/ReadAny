@@ -4,6 +4,34 @@ import type { CodexNovelChapter } from "./types";
 
 export type LoadedChapter = CodexNovelChapter & { fromCache: boolean };
 
+function chapterFromCache(cached: CachedChapter): LoadedChapter {
+  const prev =
+    cached.prev !== undefined && cached.prev !== null
+      ? cached.prev
+      : cached.chapterNumber > 1
+        ? cached.chapterNumber - 1
+        : null;
+  // Prefer stored next; if missing (old cache), assume next chapter exists until server says otherwise
+  const next =
+    cached.next !== undefined
+      ? cached.next
+      : cached.chapterNumber + 1;
+
+  return {
+    novelId: cached.novelId,
+    chapterId: 0,
+    chapterNumber: cached.chapterNumber,
+    title: cached.title,
+    content: cached.content,
+    paragraphs: cached.paragraphs,
+    contentHash: cached.contentHash,
+    updatedAt: cached.updatedAt,
+    prev,
+    next,
+    fromCache: true,
+  };
+}
+
 /**
  * Load chapter with local contentHash / ETag cache.
  * On 304, returns cached body. On network failure with cache, returns cache.
@@ -20,21 +48,7 @@ export async function loadCodexNovelChapter(
     });
 
     if (result.notModified) {
-      if (cached) {
-        return {
-          novelId: cached.novelId,
-          chapterId: 0,
-          chapterNumber: cached.chapterNumber,
-          title: cached.title,
-          content: cached.content,
-          paragraphs: cached.paragraphs,
-          contentHash: cached.contentHash,
-          updatedAt: cached.updatedAt,
-          prev: chapterNumber > 1 ? chapterNumber - 1 : null,
-          next: null, // unknown from cache alone
-          fromCache: true,
-        };
-      }
+      if (cached) return chapterFromCache(cached);
       // 304 without cache — re-fetch without etag
       const fresh = await getCodexNovelChapter(novelId, chapterNumber);
       if (!fresh.chapter) throw new Error("Chapter not available");
@@ -46,21 +60,7 @@ export async function loadCodexNovelChapter(
     await writeChapterCache(result.chapter);
     return { ...result.chapter, fromCache: false };
   } catch (err) {
-    if (cached) {
-      return {
-        novelId: cached.novelId,
-        chapterId: 0,
-        chapterNumber: cached.chapterNumber,
-        title: cached.title,
-        content: cached.content,
-        paragraphs: cached.paragraphs,
-        contentHash: cached.contentHash,
-        updatedAt: cached.updatedAt,
-        prev: chapterNumber > 1 ? chapterNumber - 1 : null,
-        next: null,
-        fromCache: true,
-      };
-    }
+    if (cached) return chapterFromCache(cached);
     throw err;
   }
 }

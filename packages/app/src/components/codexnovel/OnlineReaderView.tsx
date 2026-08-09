@@ -203,6 +203,15 @@ export function OnlineReaderView({ bookId }: OnlineReaderViewProps) {
     setChapterNumber(next);
   };
 
+  // If "next" unknown, still allow stepping forward until server 404s
+  const effectivePrev = chapter?.prev ?? (chapterNumber > 1 ? chapterNumber - 1 : null);
+  const effectiveNext =
+    chapter?.next !== undefined && chapter?.next !== null
+      ? chapter.next
+      : chapter
+        ? chapterNumber + 1
+        : null;
+
   const addBookmark = async () => {
     if (!novelId) return;
     try {
@@ -227,9 +236,6 @@ export function OnlineReaderView({ bookId }: OnlineReaderViewProps) {
     );
   }
 
-  const prev = chapter?.prev ?? (chapterNumber > 1 ? chapterNumber - 1 : null);
-  const next = chapter?.next ?? null;
-
   return (
     <div className="flex h-full flex-col bg-background">
       <header className="flex flex-shrink-0 items-center gap-2 border-b border-border px-3 py-2">
@@ -248,8 +254,8 @@ export function OnlineReaderView({ bookId }: OnlineReaderViewProps) {
           type="button"
           size="sm"
           variant="outline"
-          disabled={!prev || loading}
-          onClick={() => goChapter(prev)}
+          disabled={!effectivePrev || loading}
+          onClick={() => goChapter(effectivePrev)}
         >
           <ChevronLeft className="h-4 w-4" />
           {t("common.back", "上一章")}
@@ -259,8 +265,8 @@ export function OnlineReaderView({ bookId }: OnlineReaderViewProps) {
           type="button"
           size="sm"
           variant="outline"
-          disabled={!next || loading}
-          onClick={() => goChapter(next)}
+          disabled={!effectiveNext || loading}
+          onClick={() => goChapter(effectiveNext)}
         >
           {t("common.next", "下一章")}
           <ChevronRight className="h-4 w-4" />

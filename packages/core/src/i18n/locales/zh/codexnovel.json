@@ -43,6 +43,9 @@
     "checkOps": "公告 / 强更",
     "opsOk": "无公告，版本策略正常",
     "needsUpdate": "客户端版本低于服务器要求（当前 {{version}}）",
-    "forceUpdate": "需要强制更新客户端"
+    "forceUpdate": "需要强制更新客户端",
+    "readNow": "立即阅读",
+    "noChapters": "本书暂无章节，无法阅读（服务端未导入正文）",
+    "addedToShelfHint": "已加入书架。可在左侧「书架」打开，或点「立即阅读」"
   }
 }

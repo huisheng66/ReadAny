@@ -43,6 +43,9 @@
     "checkOps": "Announcement / update policy",
     "opsOk": "No announcement; version policy OK",
     "needsUpdate": "Client is below server minimum (current {{version}})",
-    "forceUpdate": "A forced client update is required"
+    "forceUpdate": "A forced client update is required",
+    "readNow": "Read now",
+    "noChapters": "No chapters available for this book",
+    "addedToShelfHint": "Added to shelf. Open it from Library, or tap Read now."
   }
 }

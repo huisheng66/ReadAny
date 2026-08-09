@@ -9,6 +9,7 @@ import {
   CodexNovelError,
   addCodexNovelToShelf,
   checkCodexNovelShelfUpdates,
+  ensureCodexNovelBookReady,
   getStoredBaseUrl,
   isCodexNovelLoggedIn,
   listCodexNovelBooks,
@@ -26,6 +27,8 @@ export function CodexNovelLibraryPage() {
   const { t } = useTranslation();
   const loadBooks = useLibraryStore((s) => s.loadBooks);
   const setShowSettings = useAppStore((s) => s.setShowSettings);
+  const addTab = useAppStore((s) => s.addTab);
+  const setActiveTab = useAppStore((s) => s.setActiveTab);
 
   const [ready, setReady] = useState(false);
   const [loggedIn, setLoggedIn] = useState(false);
@@ -73,7 +76,34 @@ export function CodexNovelLibraryPage() {
       await addCodexNovelToShelf(novelId);
       await syncCodexNovelShelfToLibrary();
       await loadBooks();
-      toast.success(t("codexnovel.addedToShelf", "已加入书架"));
+      toast.success(
+        t("codexnovel.addedToShelfHint", "已加入书架。可在左侧「书架」打开，或点「立即阅读」"),
+      );
+    } catch (err) {
+      toast.error(err instanceof CodexNovelError ? err.message : String(err));
+    } finally {
+      setActingId(null);
+    }
+  };
+
+  const handleRead = async (book: CodexNovelBookSummary) => {
+    const chapters = book.chapterCount ?? book.lastChapterNumber ?? 0;
+    if (!chapters) {
+      toast.error(t("codexnovel.noChapters", "本书暂无章节，无法阅读（服务端未导入正文）"));
+      return;
+    }
+    setActingId(book.id);
+    try {
+      const local = await ensureCodexNovelBookReady(book);
+      await loadBooks();
+      const tabId = `reader-${local.id}`;
+      addTab({
+        id: tabId,
+        type: "reader",
+        title: local.meta.title || book.title,
+        bookId: local.id,
+      });
+      setActiveTab(tabId);
     } catch (err) {
       toast.error(err instanceof CodexNovelError ? err.message : String(err));
     } finally {
@@ -242,6 +272,17 @@ export function CodexNovelLibraryPage() {
                       type="button"
                       size="sm"
                       className="h-7 px-2 text-xs"
+                      disabled={actingId === book.id || !(book.chapterCount || book.lastChapterNumber)}
+                      onClick={() => void handleRead(book)}
+                    >
+                      <BookOpen className="mr-0.5 h-3 w-3" />
+                      {t("codexnovel.readNow", "立即阅读")}
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="secondary"
+                      className="h-7 px-2 text-xs"
                       disabled={actingId === book.id}
                       onClick={() => void handleAdd(book.id)}
                     >
@@ -260,6 +301,11 @@ export function CodexNovelLibraryPage() {
                       {t("codexnovel.removeShelf", "移出")}
                     </Button>
                   </div>
+                  {!(book.chapterCount || book.lastChapterNumber) ? (
+                    <p className="mt-1 text-[10px] text-destructive">
+                      {t("codexnovel.noChapters", "暂无章节")}
+                    </p>
+                  ) : null}
                 </div>
               </article>
             ))}

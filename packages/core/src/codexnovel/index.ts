@@ -104,6 +104,7 @@ export {
 export {
   syncCodexNovelShelfToLibrary,
   removeCodexNovelFromLocalLibrary,
+  ensureCodexNovelBookReady,
   type SyncShelfResult,
 } from "./shelf-sync";
 export {

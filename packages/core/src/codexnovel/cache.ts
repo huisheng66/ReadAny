@@ -10,6 +10,8 @@ export interface CachedChapter {
   contentHash: string;
   updatedAt: string;
   cachedAt: number;
+  prev: number | null;
+  next: number | null;
 }
 
 async function chapterCachePath(novelId: number, chapterNumber: number): Promise<string> {
@@ -60,6 +62,8 @@ export async function writeChapterCache(chapter: CodexNovelChapter): Promise<Cac
     contentHash: chapter.contentHash,
     updatedAt: chapter.updatedAt,
     cachedAt: Date.now(),
+    prev: chapter.prev ?? (chapter.chapterNumber > 1 ? chapter.chapterNumber - 1 : null),
+    next: chapter.next ?? null,
   };
   const path = await chapterCachePath(chapter.novelId, chapter.chapterNumber);
   await platform.writeTextFile(path, JSON.stringify(cached));

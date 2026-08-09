@@ -2,9 +2,14 @@
  * Pull remote shelf into local books + codexnovel_books meta.
  */
 import { getBook, insertBook, updateBook } from "../db/book-queries";
-import { bookFromCodexNovelShelfItem } from "./mapping";
+import {
+  bookFromCodexNovelShelfItem,
+  bookFromCodexNovelSummary,
+  toLocalCodexNovelBookId,
+} from "./mapping";
 import { deleteCodexNovelLocalMeta, upsertCodexNovelLocalMeta } from "./local-meta";
-import { listCodexNovelShelf } from "./shelf";
+import { addCodexNovelToShelf, listCodexNovelShelf } from "./shelf";
+import type { CodexNovelBookSummary } from "./types";
 import type { Book } from "../types";
 
 export interface SyncShelfResult {
@@ -78,8 +83,55 @@ function shouldApplyRemoteProgress(local: Book, remote: Book): boolean {
 
 export async function removeCodexNovelFromLocalLibrary(novelId: number): Promise<void> {
   const { deleteBook } = await import("../db/book-queries");
-  const { toLocalCodexNovelBookId } = await import("./mapping");
   const bookId = toLocalCodexNovelBookId(novelId);
   await deleteBook(bookId, { preserveData: false });
   await deleteCodexNovelLocalMeta(novelId);
+}
+
+/**
+ * Ensure a remote book exists locally (and on shelf), ready to open in OnlineReader.
+ * Returns local book id `cn-{novelId}`.
+ */
+export async function ensureCodexNovelBookReady(summary: CodexNovelBookSummary): Promise<Book> {
+  const chapterCount = summary.chapterCount ?? summary.lastChapterNumber ?? 0;
+  if (!chapterCount || chapterCount <= 0) {
+    throw new Error("本书暂无章节，无法阅读");
+  }
+
+  try {
+    await addCodexNovelToShelf(summary.id);
+  } catch {
+    // already on shelf or transient — still try local upsert
+  }
+
+  const draft = bookFromCodexNovelSummary(summary);
+  const existing = await getBook(draft.id, { includeDeleted: true });
+  if (!existing) {
+    await insertBook(draft);
+  } else {
+    await updateBook(draft.id, {
+      meta: {
+        ...existing.meta,
+        title: draft.meta.title,
+        author: draft.meta.author,
+        description: draft.meta.description ?? existing.meta.description,
+        coverUrl: draft.meta.coverUrl ?? existing.meta.coverUrl,
+        totalChapters: draft.meta.totalChapters ?? existing.meta.totalChapters,
+      },
+      format: "online",
+      filePath: draft.filePath,
+      tags: Array.from(new Set([...(existing.tags || []), "codexnovel"])),
+      deletedAt: undefined,
+    });
+  }
+
+  await upsertCodexNovelLocalMeta({
+    novelId: summary.id,
+    lastChapterNumber: summary.lastChapterNumber || chapterCount,
+    lastChapterTitle: summary.lastChapterTitle || "",
+    novelUpdatedAt: summary.updatedAt || null,
+    shelfAdded: true,
+  });
+
+  return (await getBook(draft.id)) || draft;
 }
