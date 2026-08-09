@@ -50,6 +50,7 @@ export default function CodexNovelSettingsScreen() {
   const [baseUrl, setBaseUrl] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [inviteCode, setInviteCode] = useState("");
   const [deviceName, setDeviceName] = useState(
     Platform.OS === "ios" ? "ReadAny iOS" : "ReadAny Android",
   );
@@ -210,6 +211,17 @@ export default function CodexNovelSettingsScreen() {
           secureTextEntry
           editable={!busy && !userLabel}
         />
+        {!userLabel ? (
+          <TextInput
+            style={styles.input}
+            value={inviteCode}
+            onChangeText={(v) => setInviteCode(v.toUpperCase())}
+            placeholder={t("codexnovel.inviteCode", "邀请码（注册必填）")}
+            placeholderTextColor={colors.mutedForeground}
+            autoCapitalize="characters"
+            editable={!busy}
+          />
+        ) : null}
         <TextInput
           style={styles.input}
           value={deviceName}
@@ -287,9 +299,11 @@ export default function CodexNovelSettingsScreen() {
                       username: username.trim(),
                       password,
                       displayName: username.trim(),
+                      inviteCode: inviteCode.trim(),
                       deviceName: deviceName.trim() || "ReadAny Mobile",
                       baseUrl: baseUrl.trim() || undefined,
                     });
+                    setInviteCode("");
                     await afterAuth();
                   })
                 }

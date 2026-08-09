@@ -23,6 +23,8 @@ export interface LoginInput {
 
 export interface RegisterInput extends LoginInput {
   displayName?: string;
+  /** 一次一码邀请码（服务端必填） */
+  inviteCode?: string;
 }
 
 export async function configureCodexNovelBaseUrl(baseUrl: string): Promise<string> {
@@ -53,6 +55,11 @@ export async function registerCodexNovel(input: RegisterInput): Promise<CodexNov
     const { CodexNovelError } = await import("./errors");
     throw new CodexNovelError("BAD_REQUEST", "密码至少 8 位");
   }
+  const inviteCode = String(input.inviteCode || "").trim();
+  if (!inviteCode) {
+    const { CodexNovelError } = await import("./errors");
+    throw new CodexNovelError("BAD_REQUEST", "请填写邀请码（一次一码，向管理员索取）");
+  }
 
   if (input.baseUrl) {
     await configureCodexNovelBaseUrl(input.baseUrl);
@@ -68,6 +75,7 @@ export async function registerCodexNovel(input: RegisterInput): Promise<CodexNov
       username,
       password,
       displayName: input.displayName || username,
+      inviteCode,
     },
     baseUrl: input.baseUrl,
   });

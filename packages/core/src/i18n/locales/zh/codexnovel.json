@@ -12,6 +12,7 @@
     "notLoggedIn": "未登录",
     "username": "用户名",
     "password": "密码",
+    "inviteCode": "邀请码（注册必填，一次一码）",
     "deviceName": "设备名",
     "login": "登录",
     "register": "注册",

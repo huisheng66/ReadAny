@@ -32,6 +32,7 @@ export function CodexNovelSettings() {
   const [baseUrl, setBaseUrl] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [inviteCode, setInviteCode] = useState("");
   const [deviceName, setDeviceName] = useState("ReadAny Desktop");
   const [userLabel, setUserLabel] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -154,10 +155,12 @@ export function CodexNovelSettings() {
         username: username.trim(),
         password,
         displayName: username.trim(),
+        inviteCode: inviteCode.trim(),
         deviceName: deviceName.trim() || "ReadAny Desktop",
         baseUrl: baseUrl.trim(),
       });
       await afterAuth();
+      setInviteCode("");
       toast.success(t("codexnovel.registerOk", "注册并登录成功"));
     } catch (err) {
       toast.error(formatAuthError(err));
@@ -246,7 +249,7 @@ export function CodexNovelSettings() {
         <p className="mt-1 text-xs text-muted-foreground">
           {t(
             "codexnovel.accountHint",
-            "还没有账号请先「注册」。用户名仅英文/数字/下划线 3–32 位，密码至少 8 位。",
+            "还没有账号请先「注册」。须填写管理员发放的邀请码（一次一码）。用户名仅英文/数字/下划线 3–32 位，密码至少 8 位。",
           )}
         </p>
       </div>
@@ -306,6 +309,15 @@ export function CodexNovelSettings() {
           disabled={busy || Boolean(userLabel)}
           autoComplete="current-password"
         />
+        {!userLabel ? (
+          <Input
+            value={inviteCode}
+            onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
+            placeholder={t("codexnovel.inviteCode", "邀请码（注册必填，一次一码）")}
+            disabled={busy}
+            autoComplete="off"
+          />
+        ) : null}
         <Input
           value={deviceName}
           onChange={(e) => setDeviceName(e.target.value)}

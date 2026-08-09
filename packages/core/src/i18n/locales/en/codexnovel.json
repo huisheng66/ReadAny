@@ -12,6 +12,7 @@
     "notLoggedIn": "Not signed in",
     "username": "Username",
     "password": "Password",
+    "inviteCode": "Invite code (required for register)",
     "deviceName": "Device name",
     "login": "Sign in",
     "register": "Register",
