@@ -32,6 +32,10 @@ config.resolver.blockList = [
 // 4. Add support for TypeScript files
 config.resolver.sourceExts = [...config.resolver.sourceExts, "ts", "tsx"];
 
+// 4b. Honour package.json "exports" so workspace paths like
+// @readany/core/ai/llm-provider resolve to packages/core/src/...
+config.resolver.unstable_enablePackageExports = true;
+
 // 5. Add .html to asset extensions so WebView can load local HTML files
 // Add .bin, .ort, .wasm for ONNX models
 config.resolver.assetExts = [...config.resolver.assetExts, "html", "bin", "ort", "wasm"];

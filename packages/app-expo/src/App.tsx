@@ -33,7 +33,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { AnimatedSplash } from "@/components/splash/AnimatedSplash";
 import { rnSessionEventSource } from "@/hooks";
-import { setStreamingFetch } from "@readany/core/ai/llm-provider";
+import { setStreamingFetch } from "@readany/core/ai";
 import { initDatabase } from "@readany/core/db/database";
 import { installFeedbackLogCapture, setFeedbackWorkerUrl } from "@readany/core/feedback";
 import { setSessionEventSource } from "@readany/core/hooks/use-reading-session";

@@ -10,11 +10,20 @@ export class CodexNovelError extends Error {
     message: string,
     options?: { httpStatus?: number; retryAfterSec?: number; cause?: unknown },
   ) {
-    super(message, options?.cause !== undefined ? { cause: options.cause } : undefined);
+    // Avoid `super(message, { cause })` — app tsc targets ES2020 Error ctor (0–1 args).
+    super(message);
     this.name = "CodexNovelError";
     this.code = code;
     this.httpStatus = options?.httpStatus;
     this.retryAfterSec = options?.retryAfterSec;
+    if (options?.cause !== undefined) {
+      Object.defineProperty(this, "cause", {
+        value: options.cause,
+        enumerable: false,
+        configurable: true,
+        writable: true,
+      });
+    }
   }
 }
 

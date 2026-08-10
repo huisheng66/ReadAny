@@ -371,6 +371,9 @@
     font-feature-settings: normal;
     -webkit-tap-highlight-color: transparent;
     font-variation-settings: normal;
+    /* Solid base so transparent OS windows never show the desktop behind the app. */
+    background-color: var(--background);
+    height: 100%;
   }
 
   body {
@@ -380,12 +383,16 @@
     -moz-osx-font-smoothing: grayscale;
     overflow: hidden;
     user-select: none;
+    min-height: 100%;
+    background-color: var(--background);
     @apply bg-background text-foreground;
   }
 
   #root {
     height: 100vh;
     width: 100vw;
+    min-height: 100%;
+    background-color: var(--background);
   }
 }
 

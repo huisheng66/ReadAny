@@ -8,6 +8,28 @@ use std::process::Command;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Manager};
 
+#[cfg(windows)]
+use std::os::windows::process::CommandExt;
+
+/// Hide the console window when spawning CLI helpers on Windows.
+/// Without this, each `node readany.js …` flash a black cmd window.
+#[cfg(windows)]
+const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+
+fn run_cli_command(cli_command: &CliCommand, args: &[String]) -> std::io::Result<std::process::Output> {
+    let mut command = Command::new(&cli_command.program);
+    command.args(&cli_command.prefix_args).args(args);
+    // Capture stdout/stderr; do not inherit a console (Windows GUI apps).
+    command.stdout(std::process::Stdio::piped());
+    command.stderr(std::process::Stdio::piped());
+    command.stdin(std::process::Stdio::null());
+    #[cfg(windows)]
+    {
+        command.creation_flags(CREATE_NO_WINDOW);
+    }
+    command.output()
+}
+
 const BUNDLED_CLI_RESOURCE_PATH: &str = "readany-cli/bin/readany.js";
 
 #[derive(Serialize)]
@@ -733,11 +755,7 @@ pub async fn readany_cli_run(
     let action_for_result = action.clone();
     tauri::async_runtime::spawn_blocking(move || {
         let command = command_display(&cli_command);
-        let output = match Command::new(&cli_command.program)
-            .args(&cli_command.prefix_args)
-            .args(&args)
-            .output()
-        {
+        let output = match run_cli_command(&cli_command, &args) {
             Ok(output) => output,
             Err(error) => {
                 if let Some(path) = temp_patch.as_deref() {
