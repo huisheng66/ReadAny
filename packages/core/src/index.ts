@@ -78,26 +78,16 @@ export type { EpubChapterReadResult } from "./epub/chapter";
 export { searchKnowledge } from "./knowledge/search";
 export type { KnowledgeSearchHit, KnowledgeSearchResult, KnowledgeSearchSource } from "./knowledge/search";
 
-// CodexNovel online library client
+// Generic book-source extension point (no vendor special-case)
 export {
-  CodexNovelError,
-  normalizeCodexNovelBaseUrl,
-  buildCodexNovelApiUrl,
-  codexNovelRequest,
-  tryRefreshAccessToken,
-  configureCodexNovelBaseUrl,
-  getCodexNovelHealth,
-  registerCodexNovel,
-  loginCodexNovel,
-  logoutCodexNovel,
-  getCodexNovelMe,
-  getCodexNovelSession,
-  isCodexNovelLoggedIn,
-} from "./codexnovel";
+  listBookSources,
+  registerBookSource,
+  unregisterBookSource,
+  getBookSource,
+} from "./book-source";
 export type {
-  CodexNovelUser,
-  CodexNovelAuthResponse,
-  CodexNovelHealth,
-  CodexNovelSession,
-  CodexNovelErrorCode,
-} from "./codexnovel";
+  BookSourceAdapter,
+  BookSourceDescriptor,
+  BookSourceSearchQuery,
+  BookSourceSearchResult,
+} from "./book-source";

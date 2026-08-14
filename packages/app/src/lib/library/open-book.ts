@@ -89,12 +89,6 @@ export async function openDesktopBook({
     return false;
   }
 
-  // Online chapter-stream books (CodexNovel)
-  if (book.format === "online" || book.filePath?.startsWith("codexnovel://")) {
-    openReaderTab(book, initialCfi);
-    return true;
-  }
-
   if (book.syncStatus === "remote") {
     const syncStore = useSyncStore.getState();
     if (!syncStore.config) {

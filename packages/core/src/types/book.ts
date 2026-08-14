@@ -35,7 +35,10 @@ export type BookFormat =
   | "fbz"
   | "txt"
   | "umd"
-  /** Online chapter-stream book (CodexNovel /api/v1) */
+  /**
+   * Online / remote chapter-stream book (generic).
+   * Concrete providers should plug in via book-source adapters, not vendor hardcodes.
+   */
   | "online";
 
 export interface Book {

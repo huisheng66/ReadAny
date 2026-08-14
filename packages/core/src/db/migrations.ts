@@ -123,7 +123,7 @@ const migrations: Migration[] = [
   },
   {
     version: 14,
-    description: "CodexNovel online books side table",
+    description: "Legacy online-books side table (historical; unused by generic book-source)",
     up: [
       `CREATE TABLE IF NOT EXISTS codexnovel_books (
         book_id TEXT PRIMARY KEY,

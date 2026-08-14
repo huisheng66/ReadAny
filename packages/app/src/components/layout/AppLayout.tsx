@@ -19,11 +19,9 @@ import { ChatPage as ChatPageComponent } from "@/components/chat/ChatPage";
 import { CommandPalette } from "@/components/command-palette/CommandPalette";
 import { EpubDraftWorkspace } from "@/components/epub-draft/EpubDraftWorkspace";
 import { HomePage } from "@/components/home/HomePage";
-import { CodexNovelLibraryPage } from "@/components/codexnovel/CodexNovelLibraryPage";
 import { NotesPage } from "@/components/notes/NotesPage";
 import { OnboardingModal } from "@/components/onboarding/OnboardingModal";
 import { ReaderView, evictBlobCache } from "@/components/reader/ReaderView";
-import { OnlineReaderView } from "@/components/codexnovel/OnlineReaderView";
 import { SettingsDialog } from "@/components/settings/SettingsDialog";
 import { MissingBookPromptDialog } from "@/components/shared/MissingBookPromptDialog";
 import { ReadingStatsPanel } from "@/components/stats/ReadingStatsPanel";
@@ -48,7 +46,6 @@ const HOME_VIEWS: { id: string; Component: React.ComponentType }[] = [
   { id: "notes", Component: NotesPage },
   { id: "skills", Component: SkillsPage },
   { id: "stats", Component: ReadingStatsPanel },
-  { id: "codexnovel", Component: CodexNovelLibraryPage },
 ];
 
 /** Idle timeout before a background reader tab is hibernated (30 minutes). */
@@ -394,9 +391,6 @@ export function AppLayout() {
                   progress={readerStoreTabs[tab.id]?.progress}
                   t={t}
                 />
-              ) : books.find((b) => b.id === tab.bookId)?.format === "online" ||
-                books.find((b) => b.id === tab.bookId)?.filePath?.startsWith("codexnovel://") ? (
-                <OnlineReaderView bookId={tab.bookId} tabId={tab.id} />
               ) : (
                 <ReaderView bookId={tab.bookId} tabId={tab.id} />
               )}

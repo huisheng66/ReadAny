@@ -28,7 +28,6 @@ export type SettingsTab =
   | "tts"
   | "translation"
   | "sync"
-  | "codexnovel"
   | "externalAi"
   | "feedback"
   | "about";

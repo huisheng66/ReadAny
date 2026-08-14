@@ -128,12 +128,6 @@ export async function openMobileBook({
     return false;
   }
 
-  // CodexNovel online chapter-stream books
-  if (book.format === "online" || book.filePath?.startsWith("codexnovel://")) {
-    navigation.navigate("OnlineReader", { bookId });
-    return true;
-  }
-
   if (book.syncStatus === "remote") {
     navigation.navigate("Reader", { bookId, cfi, highlight });
     return true;
