@@ -13,7 +13,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Coffee, FolderOpen, HardDrive, Monitor, Moon, RotateCcw, Sun } from "lucide-react";
+import {
+  applyTheme,
+  getStoredThemeMode,
+  THEME_CHANGE_EVENT,
+  type ThemeMode,
+} from "@/lib/theme";
+import { Coffee, FolderOpen, HardDrive, Leaf, Monitor, Moon, RotateCcw, Sun } from "lucide-react";
 /**
  * GeneralSettings — app-level settings
  */
@@ -21,28 +27,30 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
-type ThemeMode = "light" | "dark" | "sepia" | "system";
-
 const THEME_CONFIG: Record<ThemeMode, { icon: typeof Sun; labelKey: string }> = {
   system: { icon: Monitor, labelKey: "settings.system" },
   light: { icon: Sun, labelKey: "settings.light" },
   dark: { icon: Moon, labelKey: "settings.dark" },
   sepia: { icon: Coffee, labelKey: "settings.sepia" },
+  green: { icon: Leaf, labelKey: "settings.readerBackgroundGreen" },
 };
 
 export function GeneralSettings() {
   const { t, i18n } = useTranslation();
-  const [theme, setThemeState] = useState<ThemeMode>("dark");
+  const [theme, setThemeState] = useState<ThemeMode>(() => getStoredThemeMode());
   const [currentLibraryRoot, setCurrentLibraryRoot] = useState("");
   const [defaultLibraryRoot, setDefaultLibraryRoot] = useState("");
   const [targetLibraryRoot, setTargetLibraryRoot] = useState("");
   const [migratingLibrary, setMigratingLibrary] = useState(false);
 
   useEffect(() => {
-    const saved = localStorage.getItem("readany-theme") as ThemeMode | null;
-    if (saved && THEME_CONFIG[saved]) {
-      setThemeState(saved);
-    }
+    const onThemeChange = (event: Event) => {
+      const mode = (event as CustomEvent<ThemeMode>).detail;
+      if (mode) setThemeState(mode);
+      else setThemeState(getStoredThemeMode());
+    };
+    window.addEventListener(THEME_CHANGE_EVENT, onThemeChange);
+    return () => window.removeEventListener(THEME_CHANGE_EVENT, onThemeChange);
   }, []);
 
   // Listen for system theme changes when in "system" mode
@@ -86,13 +94,7 @@ export function GeneralSettings() {
 
   const handleThemeChange = (newTheme: ThemeMode) => {
     setThemeState(newTheme);
-    localStorage.setItem("readany-theme", newTheme);
-    if (newTheme === "system") {
-      const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-      document.documentElement.setAttribute("data-theme", prefersDark ? "dark" : "light");
-    } else {
-      document.documentElement.setAttribute("data-theme", newTheme);
-    }
+    applyTheme(newTheme);
   };
 
   const handleChooseLibraryFolder = async () => {

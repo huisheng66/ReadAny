@@ -78,6 +78,9 @@ export interface FontTheme {
   cjk: string;
 }
 
+/** Reader content paper color. "auto" follows the app chrome theme. */
+export type ReaderBackgroundId = "auto" | "light" | "sepia" | "green" | "dark";
+
 export interface ViewSettings {
   fontSize: number; // 12-64
   lineHeight: number; // 1.2-2.5
@@ -86,6 +89,12 @@ export interface ViewSettings {
   customFontFaceCSS?: string; // @font-face CSS to inject (not persisted in store)
   customFontCssUrls?: string[]; // remote font stylesheet URLs to inject into renderer docs
   useBookFonts?: boolean; // default true: honor the book's own (embedded) fonts
+  /**
+   * Legacy reader paper override. Desktop reading settings now map background
+   * swatches to the global app theme and keep this as "auto" so content follows
+   * chrome (light / dark / sepia / green / system).
+   */
+  readerBackground?: ReaderBackgroundId;
   viewMode: ViewMode;
   paginatedLayout: PaginatedLayout;
   fixedLayoutZoom?: number; // relative zoom multiplier for PDF/CBZ fixed layouts

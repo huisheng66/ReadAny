@@ -266,7 +266,7 @@ export function AboutSettings() {
       {/* Links */}
       <div className="w-full max-w-md space-y-2">
         <a
-          href="https://github.com/codedogQBY/ReadAny"
+          href="https://github.com/huisheng66/ReadAny"
           target="_blank"
           rel="noopener noreferrer"
           className="flex items-center justify-between rounded-lg bg-muted/60 p-3 transition-colors hover:bg-muted"
@@ -279,7 +279,7 @@ export function AboutSettings() {
         </a>
 
         <a
-          href="https://github.com/codedogQBY/ReadAny/issues"
+          href="https://github.com/huisheng66/ReadAny/issues"
           target="_blank"
           rel="noopener noreferrer"
           className="flex items-center justify-between rounded-lg bg-muted/60 p-3 transition-colors hover:bg-muted"

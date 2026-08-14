@@ -2,26 +2,35 @@
 
 Cloudflare Worker for creating GitHub Issues from in-app feedback.
 
-## Setup
+当前目标仓库（`wrangler.toml`）：
 
-1. Create a fine-grained GitHub token with Issues read/write access for the target repo.
-2. Store it as a Worker secret:
+- `GITHUB_OWNER = huisheng66`
+- `GITHUB_REPO = ReadAny`
+
+## Setup（本机一次）
+
+1. 登录 Cloudflare（会打开浏览器）：
+
+```bash
+pnpm dlx wrangler@4 login
+```
+
+2. 创建 GitHub Token（fine-grained，对该仓库 Issues 读写；Gist 写权限用于日志）。
+3. 写入 Worker secret：
 
 ```bash
 pnpm --filter @readany/feedback-worker secret:token
 ```
 
-3. Create a KV namespace for server-side rate limiting:
+4. KV 限流命名空间（若 `wrangler.toml` 里 id 无效则重建）：
 
 ```bash
 pnpm dlx wrangler@4 kv namespace create FEEDBACK_RATE_LIMIT
 ```
 
-Copy the returned namespace id into `wrangler.toml` and uncomment the
-`[[kv_namespaces]]` block.
+把返回的 id 写进 `wrangler.toml` 的 `[[kv_namespaces]]`。
 
-4. Adjust `wrangler.toml` if the repo, allowed origins, or rate limits change.
-5. Deploy:
+5. 部署：
 
 ```bash
 pnpm --filter @readany/feedback-worker deploy
@@ -29,19 +38,21 @@ pnpm --filter @readany/feedback-worker deploy
 
 ## Client Configuration
 
-Desktop:
+部署成功后把 Worker URL 写入本地 env（已 gitignore）：
+
+Desktop — `packages/app/.env.local`：
 
 ```bash
 VITE_FEEDBACK_WORKER_URL=https://readany-feedback-worker.<account>.workers.dev
 ```
 
-Expo:
+Expo — `packages/app-expo/.env.local`：
 
 ```bash
 EXPO_PUBLIC_FEEDBACK_WORKER_URL=https://readany-feedback-worker.<account>.workers.dev
 ```
 
-Without these variables, the app keeps using the local mock mode.
+也可参考同目录 `.env.example`。未配置时应用内反馈走本地 mock，不会提交到上游。
 
 ## Rate Limits
 

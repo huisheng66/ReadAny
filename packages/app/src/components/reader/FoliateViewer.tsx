@@ -8,6 +8,7 @@ import type { BookDoc, BookFormat } from "@/lib/reader/document-loader";
 import { getDirection, isFixedLayoutBook } from "@/lib/reader/document-loader";
 import { getFontTheme } from "@/lib/reader/font-themes";
 import { registerIframeEventHandlers } from "@/lib/reader/iframe-event-handlers";
+import { resolveReaderBackgroundColors } from "@readany/core/reader";
 import type {
   ChapterParagraph,
   ChapterTranslationResult,
@@ -33,24 +34,19 @@ import { marked } from "marked";
  */
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from "react";
 
-type AppTheme = "light" | "dark" | "sepia";
-
-const THEME_COLORS: Record<AppTheme, { bg: string; fg: string; link: string }> = {
-  light: { bg: "#ffffff", fg: "#1a1a1a", link: "#2563eb" },
-  dark: { bg: "#121212", fg: "#f5f5f5", link: "#60a5fa" },
-  sepia: { bg: "#f0e6d2", fg: "#3d2b1f", link: "#6b4c2a" },
-};
+type AppTheme = "light" | "dark" | "sepia" | "green";
 
 const READER_OVERRIDE_STYLE_ID = "__readany_reader_overrides__";
 
 function getAppTheme(): AppTheme {
   if (typeof document === "undefined") return "dark";
-  const theme = document.documentElement.getAttribute("data-theme") as AppTheme | null;
-  return theme && THEME_COLORS[theme] ? theme : "dark";
+  const theme = document.documentElement.getAttribute("data-theme");
+  if (theme === "light" || theme === "dark" || theme === "sepia" || theme === "green") return theme;
+  return "dark";
 }
 
-function getThemeColors(theme: AppTheme) {
-  return THEME_COLORS[theme];
+function getThemeColors(theme: AppTheme, settings?: ViewSettings) {
+  return resolveReaderBackgroundColors(settings?.readerBackground, theme);
 }
 
 function getActiveContentDocument(view: FoliateView | null): Document | null {
@@ -2780,6 +2776,7 @@ export const FoliateViewer = forwardRef<FoliateViewerHandle, FoliateViewerProps>
       viewSettings.customFontCssUrls,
       viewSettings.useBookFonts,
       viewSettings.paragraphSpacing,
+      viewSettings.readerBackground,
       isFixedLayout,
       appTheme,
     ]);
@@ -3173,7 +3170,7 @@ function applyReflowLayoutSettings(view: FoliateView, settings: ViewSettings) {
 
 /** Generate CSS string for renderer styles */
 function getRendererStyles(settings: ViewSettings, theme: AppTheme): string {
-  const colors = getThemeColors(theme);
+  const colors = getThemeColors(theme, settings);
   const bgColor = colors.bg;
   const fgColor = colors.fg;
   const linkColor = colors.link;
@@ -3295,7 +3292,7 @@ function applyRendererStyles(
   const renderer = view.renderer;
   if (!renderer?.setStyles) return;
 
-  const colors = getThemeColors(theme);
+  const colors = getThemeColors(theme, settings);
   const bgColor = colors.bg;
 
   if (isFixedLayout) {

@@ -49,6 +49,7 @@ import {
   Globe,
   Loader2,
   Search,
+  Store,
   Upload,
 } from "lucide-react";
 import {
@@ -743,6 +744,8 @@ export function DesktopImportActions({ children, align = "end" }: DesktopImportA
   const syncConfig = useSyncStore((state) => state.config);
   const syncBackendType = useSyncStore((state) => state.backendType);
   const setShowSettings = useAppStore((state) => state.setShowSettings);
+  const addTab = useAppStore((state) => state.addTab);
+  const setActiveTab = useAppStore((state) => state.setActiveTab);
 
   const [temporaryOpen, setTemporaryOpen] = useState(false);
   const [browserSource, setBrowserSource] = useState<WebDavImportSource | null>(null);
@@ -879,6 +882,28 @@ export function DesktopImportActions({ children, align = "end" }: DesktopImportA
             </div>
             <div className="min-w-0 flex-1 whitespace-nowrap text-sm font-medium text-foreground">
               {t("library.importSourceTemporaryWebDav", "连接其他 WebDAV")}
+            </div>
+            <ChevronRight className="size-4 text-muted-foreground" />
+          </DropdownMenuItem>
+          <DropdownMenuSeparator className="mx-2" />
+
+          <DropdownMenuItem
+            className="items-center gap-3 rounded-xl px-3 py-2.5"
+            onSelect={(event) => {
+              event.preventDefault();
+              addTab({
+                id: "codexnovel",
+                type: "home" as const,
+                title: t("codexnovel.store", "在线书城"),
+              });
+              setActiveTab("codexnovel");
+            }}
+          >
+            <div className="flex size-7 shrink-0 items-center justify-center text-primary">
+              <Store className="size-4.5" />
+            </div>
+            <div className="min-w-0 flex-1 whitespace-nowrap text-sm font-medium text-foreground">
+              {t("library.importSourceOnline", "在线书城")}
             </div>
             <ChevronRight className="size-4 text-muted-foreground" />
           </DropdownMenuItem>

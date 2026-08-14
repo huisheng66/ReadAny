@@ -1166,6 +1166,10 @@ export function LibraryScreen() {
         onPickLocal={handlePickLocalFromSourceMenu}
         onPickSavedWebDav={() => void handleOpenSavedWebDav()}
         onPickTemporaryWebDav={handleOpenTemporaryWebDav}
+        onPickOnlineLibrary={() => {
+          setSourceSheetOpen(false);
+          nav.navigate("CodexNovelLibrary");
+        }}
       />
       <WebDavConnectSheet
         visible={temporaryWebDavOpen}

@@ -441,7 +441,7 @@ export async function submitFeedback(
     const mockNumber = Math.floor(Math.random() * 9000) + 1000;
     result = {
       issueNumber: mockNumber,
-      issueUrl: `https://github.com/codedogQBY/ReadAny/issues/${mockNumber}`,
+      issueUrl: `https://github.com/huisheng66/ReadAny/issues/${mockNumber}`,
     };
   }
 

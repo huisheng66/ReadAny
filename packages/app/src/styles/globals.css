@@ -2,6 +2,7 @@
 
 @custom-variant dark (&[data-theme="dark"]);
 @custom-variant sepia (&[data-theme="sepia"]);
+@custom-variant green (&[data-theme="green"]);
 
 :root {
   --background: oklch(0.9902 0.0039 106.47);
@@ -97,6 +98,31 @@
   --ring: #6b4c2a;
   --sidebar: #f5ebd7;
   --sidebar-foreground: #3d2b1f;
+}
+
+/* ── Green (eye-care) theme — aligned with reader green paper ── */
+[data-theme="green"] {
+  --background: #c7edcc;
+  --foreground: #1a2e1a;
+  --card: #d4f0d8;
+  --card-foreground: #1a2e1a;
+  --popover: #d4f0d8;
+  --popover-foreground: #1a2e1a;
+  --primary: #166534;
+  --primary-foreground: #ecfdf5;
+  --secondary: #b5e0bb;
+  --secondary-foreground: #1a2e1a;
+  --muted: #b5e0bb;
+  --muted-foreground: #3d5c40;
+  --accent: #b5e0bb;
+  --accent-foreground: #1a2e1a;
+  --destructive: #e53935;
+  --destructive-foreground: #fafafa;
+  --border: #9dcea5;
+  --input: #9dcea5;
+  --ring: #166534;
+  --sidebar: #d4f0d8;
+  --sidebar-foreground: #1a2e1a;
 }
 
 @theme inline {
@@ -477,6 +503,12 @@ div.driver-popover {
   color: #3d2b1f !important;
 }
 
+[data-theme="green"] div.driver-popover {
+  background-color: #d4f0d8 !important;
+  border-color: #9dcea5 !important;
+  color: #1a2e1a !important;
+}
+
 div.driver-overlay {
   z-index: 100001 !important;
 }
@@ -501,6 +533,10 @@ div.driver-overlay {
 
 [data-theme="sepia"] .driver-popover .driver-popover-description {
   color: #7a6652 !important;
+}
+
+[data-theme="green"] .driver-popover .driver-popover-description {
+  color: #3d5c40 !important;
 }
 
 .driver-popover .driver-popover-progress-text {
@@ -537,6 +573,12 @@ div.driver-overlay {
 [data-theme="sepia"] .driver-popover .driver-popover-next-btn {
   background-color: #6b4c2a !important;
   color: #f5ebd7 !important;
+}
+
+[data-theme="green"] .driver-popover .driver-popover-prev-btn,
+[data-theme="green"] .driver-popover .driver-popover-next-btn {
+  background-color: #166534 !important;
+  color: #ecfdf5 !important;
 }
 
 .driver-popover .driver-popover-prev-btn:hover,

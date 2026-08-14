@@ -73,9 +73,8 @@ if (Platform.OS === "ios") {
   LogBox.ignoreLogs([/TurboModuleManager: Timed out waiting for modules to be invalidated/]);
 }
 
-const FEEDBACK_WORKER_FALLBACK = "https://feedback.readany.top";
-const feedbackWorkerUrl =
-  process.env.EXPO_PUBLIC_FEEDBACK_WORKER_URL?.trim() || FEEDBACK_WORKER_FALLBACK;
+// 自有 Worker 地址；未配置时走本地 mock，避免提交到上游仓库
+const feedbackWorkerUrl = process.env.EXPO_PUBLIC_FEEDBACK_WORKER_URL?.trim() || "";
 setFeedbackWorkerUrl(feedbackWorkerUrl);
 
 // Keep the native splash screen visible while we bootstrap

@@ -29,14 +29,15 @@ export default defineConfig(async () => ({
   },
   clearScreen: false,
   server: {
-    port: 1420,
+    // 1420 落在 Windows Hyper-V 保留端口段 (1406-1505)，会 EACCES
+    port: 5173,
     strictPort: true,
     host: host || false,
     hmr: host
       ? {
           protocol: "ws",
           host,
-          port: 1421,
+          port: 5174,
         }
       : undefined,
     watch: {

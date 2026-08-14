@@ -31,6 +31,7 @@ import { useReaderStore } from "@/stores/reader-store";
 import { useSettingsStore } from "@/stores/settings-store";
 import { useTTSStore } from "@/stores/tts-store";
 import { useChapterTranslation } from "@readany/core/hooks";
+import { resolveReaderBackgroundColors } from "@readany/core/reader";
 import { getPlatformService } from "@readany/core/services";
 import { getCSSFontFace, useFontStore, useReadingSessionStore } from "@readany/core/stores";
 import { useRubyStore } from "@readany/core/stores/ruby-store";
@@ -42,6 +43,13 @@ import { X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
+
+function getAppChromeTheme(): "light" | "dark" | "sepia" | "green" {
+  if (typeof document === "undefined") return "dark";
+  const theme = document.documentElement.getAttribute("data-theme");
+  if (theme === "light" || theme === "dark" || theme === "sepia" || theme === "green") return theme;
+  return "dark";
+}
 import { BookmarkRibbon } from "./BookmarkRibbon";
 import type { BookSelection, FoliateViewerHandle, RelocateDetail, TOCItem } from "./FoliateViewer";
 import { FoliateViewer } from "./FoliateViewer";
@@ -423,6 +431,19 @@ export function ReaderView({ bookId, tabId }: ReaderViewProps) {
   const closeAppTab = useAppStore((s) => s.removeTab);
   const viewSettings = useSettingsStore((s) => s.readSettings);
   const updateReadSettings = useSettingsStore((s) => s.updateReadSettings);
+  const [appChromeTheme, setAppChromeTheme] = useState(getAppChromeTheme);
+  useEffect(() => {
+    const observer = new MutationObserver(() => setAppChromeTheme(getAppChromeTheme()));
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["data-theme"],
+    });
+    return () => observer.disconnect();
+  }, []);
+  const readerPageColors = useMemo(
+    () => resolveReaderBackgroundColors(viewSettings.readerBackground, appChromeTheme),
+    [appChromeTheme, viewSettings.readerBackground],
+  );
   const setProgress = useReaderStore((s) => s.setProgress);
   const setChapter = useReaderStore((s) => s.setChapter);
   const setSelectedText = useReaderStore((s) => s.setSelectedText);
@@ -2889,7 +2910,10 @@ export function ReaderView({ bookId, tabId }: ReaderViewProps) {
       />
 
       {/* Main reading area */}
-      <div className="relative flex flex-1 flex-col overflow-hidden rounded-lg border border-border/60 bg-background shadow-sm">
+      <div
+        className="relative flex flex-1 flex-col overflow-hidden rounded-lg border border-border/60 shadow-sm"
+        style={{ backgroundColor: readerPageColors.bg, color: readerPageColors.fg }}
+      >
         {/* Search bar — stacked above content when visible */}
         {showSearch && (
           <SearchBar

@@ -5,7 +5,7 @@
 
 import type { IPlatformService } from "../services/platform";
 
-const GITHUB_API_URL = "https://api.github.com/repos/codedogQBY/ReadAny/releases/latest";
+const GITHUB_API_URL = "https://api.github.com/repos/huisheng66/ReadAny/releases/latest";
 const THROTTLE_KEY = "update_last_check_at";
 const THROTTLE_HOURS = 24;
 

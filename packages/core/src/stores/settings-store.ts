@@ -48,6 +48,7 @@ const defaultReadSettings: ReadSettings = {
   lineHeight: 1.6,
   fontTheme: "system",
   useBookFonts: true,
+  readerBackground: "auto",
   viewMode: "paginated",
   paginatedLayout: "double",
   fixedLayoutZoom: 1,
@@ -102,6 +103,15 @@ function migrateSettingsState(state: SettingsState): SettingsState {
       readSettings: {
         ...next.readSettings,
         useBookFonts: true,
+      },
+    };
+  }
+  if (next.readSettings?.readerBackground === undefined) {
+    next = {
+      ...next,
+      readSettings: {
+        ...next.readSettings,
+        readerBackground: "auto",
       },
     };
   }

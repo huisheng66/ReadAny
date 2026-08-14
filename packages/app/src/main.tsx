@@ -22,11 +22,12 @@ import { registerDesktopFallbackContentProvider } from "./lib/rag/fallback-conte
 import { useLibraryStore } from "./stores/library-store";
 import { flushAllWrites } from "./stores/persist";
 import { useVectorModelStore } from "./stores/vector-model-store";
+import { restoreThemeOnBoot } from "./lib/theme";
 
 installFeedbackLogCapture();
 
-const FEEDBACK_WORKER_FALLBACK = "https://feedback.readany.top";
-const feedbackWorkerUrl = import.meta.env.VITE_FEEDBACK_WORKER_URL?.trim() || FEEDBACK_WORKER_FALLBACK;
+// 自有 Worker 地址；未配置时走本地 mock，避免提交到上游仓库
+const feedbackWorkerUrl = import.meta.env.VITE_FEEDBACK_WORKER_URL?.trim() || "";
 setFeedbackWorkerUrl(feedbackWorkerUrl);
 
 // Register platform service before any database/core operations
@@ -82,17 +83,8 @@ const desktopDataRootReady = syncLegacyDesktopLibraryRootConfig().catch(console.
 i18nReady.then(() => {
   desktopDataRootReady.catch(console.error);
 
-  // Restore saved theme from localStorage
-  const savedTheme = localStorage.getItem("readany-theme");
-  if (savedTheme === "system") {
-    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-    document.documentElement.setAttribute("data-theme", prefersDark ? "dark" : "light");
-  } else if (savedTheme && ["light", "dark", "sepia"].includes(savedTheme)) {
-    document.documentElement.setAttribute("data-theme", savedTheme);
-  } else {
-    // Default to sepia theme
-    document.documentElement.setAttribute("data-theme", "sepia");
-  }
+  // Restore saved theme from localStorage (light / dark / sepia / green / system)
+  restoreThemeOnBoot();
 
   // Restore saved language from platform KV storage
   initI18nLanguage().catch(console.error);

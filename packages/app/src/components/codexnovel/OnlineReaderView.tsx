@@ -34,6 +34,7 @@ import {
   type LoadedChapter,
 } from "@readany/core/codexnovel";
 import { useChapterTranslation } from "@readany/core/hooks";
+import { resolveReaderBackgroundColors } from "@readany/core/reader";
 import type { ChapterTranslationResult } from "@readany/core/translation/chapter-translator";
 import type { CitationPart } from "@readany/core/types";
 import { throttle } from "@readany/core/utils";
@@ -52,6 +53,13 @@ import { toast } from "sonner";
 
 const CHAPTER_HREF_PREFIX = "cn-chapter:";
 const TOOLBAR_PIN_STORAGE_KEY = "readany-reader-toolbar-pinned";
+
+function getAppChromeTheme(): "light" | "dark" | "sepia" | "green" {
+  if (typeof document === "undefined") return "dark";
+  const theme = document.documentElement.getAttribute("data-theme");
+  if (theme === "light" || theme === "dark" || theme === "sepia" || theme === "green") return theme;
+  return "dark";
+}
 
 interface OnlineReaderViewProps {
   bookId: string;
@@ -233,6 +241,24 @@ export function OnlineReaderView({ bookId, tabId }: OnlineReaderViewProps) {
     book?.meta.totalChapters || chapter?.chapterNumber || tocItems.length || chapterNumber;
 
   const fontTheme = getFontTheme(readSettings.fontTheme || "system");
+  const [appChromeTheme, setAppChromeTheme] = useState(getAppChromeTheme);
+
+  useEffect(() => {
+    const observer = new MutationObserver(() => {
+      setAppChromeTheme(getAppChromeTheme());
+    });
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["data-theme"],
+    });
+    return () => observer.disconnect();
+  }, []);
+
+  const pageColors = useMemo(
+    () => resolveReaderBackgroundColors(readSettings.readerBackground, appChromeTheme),
+    [appChromeTheme, readSettings.readerBackground],
+  );
+
   // readSettings.paragraphSpacing / pageMargin are stored as px (same as FoliateViewer).
   const articleStyle = useMemo((): CSSProperties => {
     const margin = Math.max(8, readSettings.pageMargin ?? 40);
@@ -243,6 +269,7 @@ export function OnlineReaderView({ bookId, tabId }: OnlineReaderViewProps) {
       fontSize: `${readSettings.fontSize ?? 16}px`,
       lineHeight: String(readSettings.lineHeight ?? 1.6),
       fontFamily,
+      color: pageColors.fg,
       // Keep a readable column width; side padding follows pageMargin (px).
       maxWidth: `${Math.min(820, 640 + margin)}px`,
       paddingLeft: margin,
@@ -251,6 +278,7 @@ export function OnlineReaderView({ bookId, tabId }: OnlineReaderViewProps) {
   }, [
     fontTheme.cjk,
     fontTheme.serif,
+    pageColors.fg,
     readSettings.customFontFamily,
     readSettings.fontSize,
     readSettings.lineHeight,
@@ -908,7 +936,8 @@ export function OnlineReaderView({ bookId, tabId }: OnlineReaderViewProps) {
 
       <div
         ref={containerRef}
-        className="relative flex flex-1 flex-col overflow-hidden rounded-lg border border-border/60 bg-background shadow-sm"
+        className="relative flex flex-1 flex-col overflow-hidden rounded-lg border border-border/60 shadow-sm"
+        style={{ backgroundColor: pageColors.bg, color: pageColors.fg }}
       >
         {/* Top hover strip to reveal toolbar */}
         <div
@@ -942,6 +971,7 @@ export function OnlineReaderView({ bookId, tabId }: OnlineReaderViewProps) {
         <div
           ref={scrollRef}
           className="min-h-0 flex-1 overflow-y-auto pb-16 pt-12"
+          style={{ backgroundColor: pageColors.bg, color: pageColors.fg }}
           onScroll={onScroll}
           onClick={handleContentClick}
           onMouseMove={() => {
@@ -979,7 +1009,7 @@ export function OnlineReaderView({ bookId, tabId }: OnlineReaderViewProps) {
                   return (
                     <div key={`${chapter?.chapterNumber}-${i}`} data-para-index={i}>
                       {originalVisible ? (
-                        <p className="text-foreground/90">
+                        <p style={{ color: pageColors.fg, opacity: 0.92 }}>
                           {paraHits
                             ? renderHighlightedParagraph(
                                 p,

@@ -3,7 +3,7 @@ main = "src/index.ts"
 compatibility_date = "2026-05-08"
 
 [vars]
-GITHUB_OWNER = "codedogQBY"
+GITHUB_OWNER = "huisheng66"
 GITHUB_REPO = "ReadAny"
 # Comma-separated origins. Use "*" for public clients without credentials.
 ALLOWED_ORIGINS = "*"
@@ -14,4 +14,4 @@ RATE_LIMIT_STATUS_PER_HOUR = "120"
 # pnpm dlx wrangler@4 kv namespace create FEEDBACK_RATE_LIMIT
 [[kv_namespaces]]
 binding = "FEEDBACK_RATE_LIMIT"
-id = "9b2e37933be24dfeb3d1d8bcbc3e181a"
+id = "404ba4f8c5a34a10883904db84a3a091"

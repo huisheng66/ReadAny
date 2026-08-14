@@ -1,6 +1,20 @@
 // Font themes
 export { FONT_THEMES, DEFAULT_FONT_THEME, getFontTheme } from "./font-themes";
 
+// Reader page background presets
+export {
+  READER_BACKGROUND_OPTIONS,
+  READER_BACKGROUND_PRESETS,
+  getReaderBackgroundSwatch,
+  isReaderBackgroundId,
+  resolveReaderBackgroundColors,
+} from "./reader-background";
+export type {
+  AppChromeTheme,
+  ReaderBackgroundColors,
+  ReaderBackgroundId,
+} from "./reader-background";
+
 // Keyboard shortcuts
 export { DEFAULT_BINDINGS, isInputElement, matchBinding, findAction } from "./keyboard";
 export type { KeyBinding } from "./keyboard";

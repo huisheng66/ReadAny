@@ -10,13 +10,35 @@ import {
 } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
+import {
+  applyTheme,
+  getStoredThemeMode,
+  readerBackgroundFromThemeMode,
+  themeModeFromReaderBackground,
+  THEME_CHANGE_EVENT,
+  type ThemeMode,
+} from "@/lib/theme";
 import { useAppStore } from "@/stores/app-store";
 import { useSettingsStore } from "@/stores/settings-store";
+import {
+  READER_BACKGROUND_OPTIONS,
+  READER_BACKGROUND_PRESETS,
+  getReaderBackgroundSwatch,
+} from "@readany/core/reader";
 import { useFontStore } from "@readany/core/stores";
 import { type RubyMode, useRubyStore } from "@readany/core/stores/ruby-store";
+import type { ReaderBackgroundId } from "@readany/core/types";
 import { Download, Loader2, Trash2 } from "lucide-react";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+
+const BACKGROUND_LABEL_KEYS: Record<ReaderBackgroundId, string> = {
+  auto: "settings.readerBackgroundAuto",
+  light: "settings.readerBackgroundLight",
+  sepia: "settings.readerBackgroundSepia",
+  green: "settings.readerBackgroundGreen",
+  dark: "settings.readerBackgroundDark",
+};
 
 export function ReadSettingsPanel() {
   const { t } = useTranslation();
@@ -26,6 +48,26 @@ export function ReadSettingsPanel() {
   const setSelectedFont = useFontStore((s) => s.setSelectedFont);
 
   const currentFontValue = selectedFontId ?? "system";
+  // Background swatches drive the global app theme (synced with General → Theme).
+  const [themeMode, setThemeMode] = useState<ThemeMode>(() => getStoredThemeMode());
+  const currentBackground: ReaderBackgroundId = readerBackgroundFromThemeMode(themeMode);
+
+  useEffect(() => {
+    const onThemeChange = (event: Event) => {
+      const mode = (event as CustomEvent<ThemeMode>).detail;
+      setThemeMode(mode ?? getStoredThemeMode());
+    };
+    window.addEventListener(THEME_CHANGE_EVENT, onThemeChange);
+    return () => window.removeEventListener(THEME_CHANGE_EVENT, onThemeChange);
+  }, []);
+
+  const handleBackgroundChange = (id: ReaderBackgroundId) => {
+    const mode = themeModeFromReaderBackground(id);
+    setThemeMode(mode);
+    applyTheme(mode);
+    // Reader content follows app chrome; clear any legacy paper-only override.
+    updateReadSettings({ readerBackground: "auto" });
+  };
 
   const handleFontChange = (v: string) => {
     if (v === "system") {
@@ -43,6 +85,56 @@ export function ReadSettingsPanel() {
         <p className="mb-4 text-xs text-muted-foreground/60">{t("settings.readingNotice")}</p>
 
         <div className="space-y-5">
+          {/* Reader page background */}
+          <div>
+            <div className="mb-2 flex items-center justify-between">
+              <span className="text-sm text-foreground">
+                {t("settings.readerBackground", "背景颜色")}
+              </span>
+              <span className="text-xs text-muted-foreground">
+                {t(BACKGROUND_LABEL_KEYS[currentBackground])}
+              </span>
+            </div>
+            <div className="flex flex-wrap items-center gap-2.5">
+              {READER_BACKGROUND_OPTIONS.map((id) => {
+                const active = currentBackground === id;
+                const swatch = getReaderBackgroundSwatch(id);
+                const borderColor =
+                  id === "dark"
+                    ? active
+                      ? "ring-2 ring-primary ring-offset-2 ring-offset-background"
+                      : "ring-1 ring-border"
+                    : active
+                      ? "ring-2 ring-primary ring-offset-2 ring-offset-background"
+                      : "ring-1 ring-border/80";
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    title={t(BACKGROUND_LABEL_KEYS[id])}
+                    aria-label={t(BACKGROUND_LABEL_KEYS[id])}
+                    aria-pressed={active}
+                    onClick={() => handleBackgroundChange(id)}
+                    className={`h-8 w-8 shrink-0 rounded-full transition-shadow ${borderColor}`}
+                    style={{
+                      background: swatch,
+                      boxShadow:
+                        id !== "auto" && id !== "dark"
+                          ? `inset 0 0 0 1px ${READER_BACKGROUND_PRESETS[id].fg}22`
+                          : undefined,
+                    }}
+                  />
+                );
+              })}
+            </div>
+            <p className="mt-2 text-[11px] text-muted-foreground">
+              {t(
+                "settings.readerBackgroundDesc",
+                "同步切换整个应用主题（与「通用 → 主题」一致）。「跟随主题」= 跟随系统。",
+              )}
+            </p>
+          </div>
+
           <div className="flex items-center justify-between">
             <span className="text-sm text-foreground">{t("settings.viewMode")}</span>
             <Select

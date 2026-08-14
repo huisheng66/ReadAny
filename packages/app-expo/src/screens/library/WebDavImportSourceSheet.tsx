@@ -3,6 +3,7 @@ import {
   ChevronRightIcon,
   CloudIcon,
   GlobeIcon,
+  LibraryIcon,
 } from "@/components/ui/Icon";
 import { useResponsiveLayout } from "@/hooks/use-responsive-layout";
 import { fontSize, fontWeight, radius, useColors, withOpacity } from "@/styles/theme";
@@ -35,6 +36,7 @@ interface WebDavImportSourceSheetProps {
   onPickLocal: () => void;
   onPickSavedWebDav: () => void;
   onPickTemporaryWebDav: () => void;
+  onPickOnlineLibrary: () => void;
 }
 
 export function WebDavImportSourceSheet({
@@ -47,6 +49,7 @@ export function WebDavImportSourceSheet({
   onPickLocal,
   onPickSavedWebDav,
   onPickTemporaryWebDav,
+  onPickOnlineLibrary,
 }: WebDavImportSourceSheetProps) {
   const { t } = useTranslation();
   const colors = useColors();
@@ -65,11 +68,12 @@ export function WebDavImportSourceSheet({
     Math.max(screenPadding, preferredLeft),
     layout.width - popoverWidth - screenPadding,
   );
+  const popoverEstimate = 300;
   const showBelow =
-    activeAnchor.y + activeAnchor.height + 12 + 230 < layout.height - screenPadding;
+    activeAnchor.y + activeAnchor.height + 12 + popoverEstimate < layout.height - screenPadding;
   const popoverTop = showBelow
     ? activeAnchor.y + activeAnchor.height + 10
-    : Math.max(screenPadding, activeAnchor.y - 230);
+    : Math.max(screenPadding, activeAnchor.y - popoverEstimate);
 
   const s = useMemo(
     () =>
@@ -97,7 +101,7 @@ export function WebDavImportSourceSheet({
           elevation: 8,
         },
         options: {
-          maxHeight: 240,
+          maxHeight: 300,
         },
         optionCard: {
           paddingHorizontal: 14,
@@ -193,6 +197,23 @@ export function WebDavImportSourceSheet({
                 <View style={s.optionText}>
                   <Text style={s.optionTitle}>
                     {t("library.importSourceTemporaryWebDav", "连接其他 WebDAV")}
+                  </Text>
+                </View>
+                <ChevronRightIcon size={16} color={colors.mutedForeground} />
+              </TouchableOpacity>
+              <View style={s.separator} />
+
+              <TouchableOpacity
+                style={s.optionCard}
+                onPress={onPickOnlineLibrary}
+                activeOpacity={0.85}
+              >
+                <View style={s.iconWrap}>
+                  <LibraryIcon size={18} color={colors.primary} />
+                </View>
+                <View style={s.optionText}>
+                  <Text style={s.optionTitle}>
+                    {t("library.importSourceOnline", "在线书城")}
                   </Text>
                 </View>
                 <ChevronRightIcon size={16} color={colors.mutedForeground} />
