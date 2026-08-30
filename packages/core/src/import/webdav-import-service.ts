@@ -13,7 +13,7 @@ function splitPathSegments(path: string): string[] {
   return path.split("/").filter(Boolean);
 }
 
-function webDavOriginFromUrl(url: string): string {
+export function webDavOriginFromUrl(url: string): string {
   try {
     return new URL(url).origin;
   } catch {

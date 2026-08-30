@@ -36,6 +36,32 @@ export type BookFormat =
   | "txt"
   | "umd";
 
+/** Book source info for auto-update from WebDAV */
+export interface BookSource {
+  type: "novel-webdav";
+  webdavUrl: string;
+  username: string;
+  password: string;
+  relativePath: string;
+  novelId: number;
+  chapterCount: number;
+  etag?: string;
+  lastModified?: number;
+}
+
+/**
+ * Connection-only seed for a WebDAV book source. Provided at import time; the
+ * full BookSource (with novelId/chapterCount/etag) is built after parsing the
+ * EPUB's source.json and the first update check.
+ */
+export interface BookSourceSeed {
+  type: "novel-webdav";
+  webdavUrl: string;
+  username: string;
+  password: string;
+  relativePath: string;
+}
+
 export interface Book {
   id: string;
   filePath: string;
@@ -53,6 +79,9 @@ export interface Book {
   tags: string[];
   fileHash?: string;
   syncStatus: "local" | "remote" | "downloading"; // File availability status
+  sourceType?: string;
+  sourceInfo?: BookSource;
+  sourceLastCheckedAt?: number;
 }
 
 export interface BookGroup {

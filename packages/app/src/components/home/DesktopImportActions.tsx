@@ -21,6 +21,7 @@ import { useLibraryStore } from "@/stores/library-store";
 import { useSyncStore } from "@/stores/sync-store";
 import { cn } from "@readany/core/utils";
 import {
+  type BookSourceSeed,
   createImportDuplicateIndex,
   DEFAULT_WEBDAV_IMPORT_REMOTE_ROOT,
   findLikelyDuplicateBook,
@@ -28,6 +29,8 @@ import {
   type ImportBooksResult,
   normalizeImportIdentity,
   type PersistedWebDavImportInput,
+  resolveWebDavImportServerPath,
+  webDavOriginFromUrl,
   WEBDAV_IMPORT_TEMPORARY_CONFIG_KEY,
   WEBDAV_IMPORT_TEMPORARY_SECRET_KEY,
   type WebDavImportEntry,
@@ -471,7 +474,19 @@ function DesktopWebDavImportBrowserDialog({
       try {
         const tempPaths = await downloadToTempFiles(items);
         setImportState({ phase: "importing", total: tempPaths.length });
-        const result = await importBooks(tempPaths);
+        // Build per-file WebDAV source seeds so imported books can auto-update.
+        // The seed stores the connection + resolved server path; novelId and
+        // chapterCount are filled in from the EPUB's source.json during import.
+        const sources: BookSourceSeed[] | undefined = source
+          ? items.map((entry) => ({
+              type: "novel-webdav",
+              webdavUrl: webDavOriginFromUrl(source.url),
+              username: source.username,
+              password: source.password,
+              relativePath: resolveWebDavImportServerPath(source, entry.relativePath),
+            }))
+          : undefined;
+        const result = await importBooks(tempPaths, sources ? { sources } : undefined);
         await cleanupTempFiles(tempPaths);
         setImportState({ phase: "idle" });
         toast.success(formatImportResultMessage(t, result));
@@ -480,7 +495,7 @@ function DesktopWebDavImportBrowserDialog({
         toast.error(err instanceof Error ? err.message : String(err));
       }
     },
-    [cleanupTempFiles, downloadToTempFiles, importBooks, t],
+    [cleanupTempFiles, downloadToTempFiles, importBooks, source, t],
   );
 
   const handleImportFolder = useCallback(async () => {

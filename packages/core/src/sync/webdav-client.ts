@@ -713,6 +713,26 @@ export class WebDavClient {
     return parsePropfindResponse(xml, path, this.buildUrl(path));
   }
 
+  /**
+   * Fetch metadata for a single resource (PROPFIND Depth 0).
+   * Returns etag/lastModified/contentLength — used by source-sync to detect
+   * remote changes without downloading the whole file.
+   */
+  async stat(
+    path: string,
+  ): Promise<{ etag?: string; lastModified?: string; contentLength?: number }> {
+    const resp = await this.request("PROPFIND", path, {
+      headers: { Depth: "0" },
+      body: '<?xml version="1.0"?><D:propfind xmlns:D="DAV:"><D:prop><D:resourcetype/><D:getcontentlength/><D:getlastmodified/><D:getetag/></D:prop></D:propfind>',
+      contentType: "application/xml",
+    });
+    if (!resp.ok && resp.status !== 207) {
+      throw createHttpWebDavError(resp.status, resp.statusText, "PROPFIND", this.buildUrl(path));
+    }
+    const xml = await resp.text();
+    return parsePropfindStatResponse(xml);
+  }
+
   /** Safely list directory, create if not exists */
   async safeReadDir(path: string): Promise<DavResource[]> {
     const collectionPath = toCollectionPath(path);
@@ -783,6 +803,28 @@ function parsePropfindBlocks(
   }
 
   return resources;
+}
+
+/**
+ * Parse a PROPFIND Depth-0 multistatus response — extract etag/lastModified/
+ * contentLength from the single <response> block. Unlike the Depth-1 parser,
+ * this keeps the resource itself (no child-path filtering).
+ */
+function parsePropfindStatResponse(xml: string): {
+  etag?: string;
+  lastModified?: string;
+  contentLength?: number;
+} {
+  const responseRegex = /<(?:[\w-]+:)?response\b[^>]*>([\s\S]*?)<\/(?:[\w-]+:)?response>/i;
+  const match = responseRegex.exec(xml);
+  if (!match) return {};
+  const block = match[1];
+  const etagRaw = extractTagContent(block, "getetag");
+  const etag = etagRaw ? etagRaw.replace(/"/g, "") : undefined;
+  const lastModified = extractTagContent(block, "getlastmodified") || undefined;
+  const contentLengthStr = extractTagContent(block, "getcontentlength");
+  const contentLength = contentLengthStr ? Number.parseInt(contentLengthStr, 10) : undefined;
+  return { etag, lastModified, contentLength };
 }
 
 function safeDecodeWebDavPath(path: string): string {

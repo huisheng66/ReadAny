@@ -19,11 +19,13 @@ import { useDownloadProgressStore } from "@/stores/download-progress-store";
 import { useLibraryStore } from "@/stores/library-store";
 import { useReaderStore } from "@/stores/reader-store";
 import { useVectorModelStore } from "@/stores/vector-model-store";
+import { SourceSyncService } from "@readany/core";
 import type { Book, VectorizeProgress } from "@readany/core/types";
 import { getBookProgressPercent } from "@readany/core/utils";
 import {
   Check,
   ChevronRight,
+  Cloud,
   Database,
   FolderInput,
   FolderMinus,
@@ -32,10 +34,12 @@ import {
   Loader2,
   MoreVertical,
   Plus,
+  RefreshCw,
   Trash2,
 } from "lucide-react";
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
 
 interface BookCardProps {
   book: Book;
@@ -54,6 +58,7 @@ export const BookCard = memo(function BookCard({
 }: BookCardProps) {
   const { t } = useTranslation();
   const removeBook = useLibraryStore((s) => s.removeBook);
+  const loadBooks = useLibraryStore((s) => s.loadBooks);
   const closeAppTab = useAppStore((s) => s.removeTab);
   const closeReaderTab = useReaderStore((s) => s.removeTab);
   const allTags = useLibraryStore((s) => s.allTags);
@@ -77,6 +82,7 @@ export const BookCard = memo(function BookCard({
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showReindexConfirm, setShowReindexConfirm] = useState(false);
   const [preserveDataOnDelete, setPreserveDataOnDelete] = useState(true);
+  const [checkingUpdate, setCheckingUpdate] = useState(false);
   const coverRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
   const menuBtnRef = useRef<HTMLButtonElement>(null);
@@ -179,6 +185,32 @@ export const BookCard = memo(function BookCard({
       onShowDetails?.(book);
     },
     [book, onShowDetails],
+  );
+
+  const handleCheckUpdate = useCallback(
+    async (e: React.MouseEvent) => {
+      e.stopPropagation();
+      suppressOpenUntilRef.current = Date.now() + 400;
+      setShowMenu(false);
+      setMenuPos(null);
+      if (checkingUpdate || !book.sourceType) return;
+      setCheckingUpdate(true);
+      try {
+        const service = new SourceSyncService();
+        const updated = await service.checkUpdate(book);
+        if (updated) {
+          toast.success(t("library.sourceUpdateFound", "发现新章节，已更新"));
+          await loadBooks();
+        } else {
+          toast.message(t("library.sourceUpToDate", "已是最新"));
+        }
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : String(err));
+      } finally {
+        setCheckingUpdate(false);
+      }
+    },
+    [book, checkingUpdate, loadBooks, t],
   );
 
   const handleImageLoad = (event: React.SyntheticEvent<HTMLImageElement>) => {
@@ -329,6 +361,16 @@ export const BookCard = memo(function BookCard({
         {book.isVectorized && !vectorizing && (
           <div className="absolute left-1 top-1 z-10 flex items-center rounded bg-green-600/80 px-1 py-0.5 backdrop-blur-sm">
             <span className="text-[9px] font-medium text-white">{t("home.vec_indexed")}</span>
+          </div>
+        )}
+
+        {/* Source badge — top-right corner (auto-update enabled) */}
+        {book.sourceType && (
+          <div
+            className="absolute right-1 top-1 z-10 flex items-center rounded bg-blue-600/80 px-1 py-0.5 backdrop-blur-sm"
+            title={t("library.sourceAutoUpdate", "支持自动更新")}
+          >
+            <Cloud className="h-2.5 w-2.5 text-white" />
           </div>
         )}
 
@@ -512,6 +554,22 @@ export const BookCard = memo(function BookCard({
                 </div>
               )}
             </div>
+            {/* Check for source updates — only for sourced books */}
+            {book.sourceType && (
+              <button
+                type="button"
+                className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs transition-colors ${
+                  checkingUpdate
+                    ? "text-muted-foreground cursor-not-allowed opacity-50"
+                    : "text-foreground hover:bg-muted"
+                }`}
+                disabled={checkingUpdate}
+                onClick={handleCheckUpdate}
+              >
+                <RefreshCw className={`h-3.5 w-3.5 ${checkingUpdate ? "animate-spin" : ""}`} />
+                {t("library.checkForUpdates", "检查更新")}
+              </button>
+            )}
             {/* Delete button */}
             <button
               type="button"

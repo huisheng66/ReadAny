@@ -10,10 +10,19 @@ import {
   createEmptyImportBooksResult,
   createImportDuplicateIndex,
   findDuplicateBookByHash,
+  parseNovelSourceJson,
 } from "@readany/core";
 import { debouncedSave, loadFromFS } from "@readany/core/stores/persist";
 import { useVectorModelStore } from "@readany/core/stores/vector-model-store";
-import type { Book, BookGroup, LibraryFilter, SortField, SortOrder } from "@readany/core/types";
+import type {
+  Book,
+  BookGroup,
+  BookSource,
+  BookSourceSeed,
+  LibraryFilter,
+  SortField,
+  SortOrder,
+} from "@readany/core/types";
 import { create } from "zustand";
 
 interface EpubMeta {
@@ -325,6 +334,12 @@ export interface RemoveBookOptions {
   preserveData?: boolean;
 }
 
+/** Optional per-file source metadata for `importBooks` (parallel to filePaths). */
+export interface ImportBooksOptions {
+  /** Seeds for WebDAV novel sources; index-aligned with `filePaths`. */
+  sources?: BookSourceSeed[];
+}
+
 function keepActiveGroupId(activeGroupId: string, groups: BookGroup[]): string {
   if (!activeGroupId) return "";
   return groups.some((group) => group.id === activeGroupId) ? activeGroupId : "";
@@ -358,7 +373,7 @@ export interface LibraryState {
   setViewMode: (mode: LibraryViewMode) => void;
   setSortField: (field: SortField) => void;
   setSortOrder: (order: SortOrder) => void;
-  importBooks: (filePaths: string[]) => Promise<ImportBooksResult>;
+  importBooks: (filePaths: string[], options?: ImportBooksOptions) => Promise<ImportBooksResult>;
   inspectDeletedBookCandidate: (
     bookId: string,
     filePath: string,
@@ -862,15 +877,18 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
 
   setSortOrder: (order) => set((state) => ({ filter: { ...state.filter, sortOrder: order } })),
 
-  importBooks: async (filePaths) => {
+  importBooks: async (filePaths, options) => {
     set({ isImporting: true });
     const result = createEmptyImportBooksResult();
     const duplicateIndex = createImportDuplicateIndex(get().books);
+    const sources = options?.sources;
     try {
       await db.initDatabase();
       const { DocumentLoader } = await import("@/lib/reader/document-loader");
 
-      for (const filePath of filePaths) {
+      for (let fileIndex = 0; fileIndex < filePaths.length; fileIndex++) {
+        const filePath = filePaths[fileIndex];
+        const sourceSeed = sources?.[fileIndex];
         const fileName = decodeURIComponent(
           filePath.replace(/\\/g, "/").split("/").pop() || "book",
         );
@@ -986,11 +1004,12 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
           // For EPUB: use lightweight ZIP directory parsing (only reads OPF + cover entry).
           // For PDF: use pdfjs with file URL (streams from disk).
           // For other formats (MOBI/AZW/FB2/CBZ): fall back to DocumentLoader (requires File).
+          let epubBytes: Uint8Array | null = null;
           try {
             if (format === "epub" || ext === "txt" || ext === "umd") {
               // Lightweight EPUB metadata: only decompress container.xml + OPF + cover
               const { readFile } = await import("@tauri-apps/plugin-fs");
-              const epubBytes = await readFile(destPath);
+              epubBytes = await readFile(destPath);
               const blob = new Blob([epubBytes]);
               const epubMeta = await extractEpubMetadata(blob);
               if (epubMeta.title) title = epubMeta.title;
@@ -1062,6 +1081,31 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
             console.warn("[importBooks] Metadata extraction failed, using filename:", err);
           }
 
+          // Parse the EPUB's embedded source.json to mark this book as an
+          // auto-updating WebDAV novel source. Only applies when the caller
+          // supplied a source seed (i.e. a WebDAV import).
+          let sourceType: string | undefined;
+          let sourceInfo: BookSource | undefined;
+          if (sourceSeed && epubBytes) {
+            try {
+              const sourceJson = await parseNovelSourceJson(epubBytes);
+              if (sourceJson) {
+                sourceType = "novel-webdav";
+                sourceInfo = {
+                  type: "novel-webdav",
+                  webdavUrl: sourceSeed.webdavUrl,
+                  username: sourceSeed.username,
+                  password: sourceSeed.password,
+                  relativePath: sourceSeed.relativePath,
+                  novelId: sourceJson.novelId,
+                  chapterCount: sourceJson.chapterCount,
+                };
+              }
+            } catch (err) {
+              console.warn("[importBooks] source.json parse failed:", err);
+            }
+          }
+
           const book: Book = {
             id: bookId,
             filePath: relativePath,
@@ -1080,6 +1124,8 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
             tags: deletedMatch?.tags ?? [],
             fileHash,
             syncStatus: "local",
+            sourceType,
+            sourceInfo,
             addedAt: deletedMatch?.addedAt ?? Date.now(),
             updatedAt: Date.now(),
             lastOpenedAt: deletedMatch?.lastOpenedAt ?? Date.now(),
@@ -1099,6 +1145,8 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
               tags: book.tags,
               fileHash: book.fileHash,
               syncStatus: "local",
+              sourceType: book.sourceType,
+              sourceInfo: book.sourceInfo,
               lastOpenedAt: Date.now(),
             }).catch((err) => console.error("Failed to restore deleted book from database:", err));
             debouncedSave("library-books", get().books);

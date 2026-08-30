@@ -40,6 +40,9 @@ interface BookRow {
   tags: string;
   file_hash: string | null;
   sync_status: string;
+  source_type: string | null;
+  source_info: string | null;
+  source_last_checked_at: number | null;
 }
 
 function rowToBook(row: BookRow): Book {
@@ -74,6 +77,9 @@ function rowToBook(row: BookRow): Book {
     tags: parseJSON(row.tags, []),
     fileHash: row.file_hash || undefined,
     syncStatus: (row.sync_status as Book["syncStatus"]) || "local",
+    sourceType: row.source_type || undefined,
+    sourceInfo: parseJSON(row.source_info, undefined),
+    sourceLastCheckedAt: row.source_last_checked_at || undefined,
   };
 }
 
@@ -170,8 +176,8 @@ export async function insertBook(book: Book): Promise<void> {
   const syncVersion = await nextSyncVersion(database, "books");
   const now = Date.now();
   await database.execute(
-    `INSERT INTO books (id, file_path, format, title, author, publisher, language, isbn, description, cover_url, publish_date, rating, reviews, subjects, total_pages, total_chapters, group_id, added_at, last_opened_at, updated_at, deleted_at, progress, current_cfi, is_vectorized, vectorize_progress, tags, file_hash, sync_status, sync_version, last_modified_by)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO books (id, file_path, format, title, author, publisher, language, isbn, description, cover_url, publish_date, rating, reviews, subjects, total_pages, total_chapters, group_id, added_at, last_opened_at, updated_at, deleted_at, progress, current_cfi, is_vectorized, vectorize_progress, tags, file_hash, sync_status, sync_version, last_modified_by, source_type, source_info, source_last_checked_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       book.id,
       book.filePath,
@@ -203,6 +209,9 @@ export async function insertBook(book: Book): Promise<void> {
       book.syncStatus || "local",
       syncVersion,
       deviceId,
+      book.sourceType || null,
+      book.sourceInfo ? JSON.stringify(book.sourceInfo) : null,
+      book.sourceLastCheckedAt || null,
     ],
   );
 }
@@ -314,6 +323,18 @@ export async function updateBook(id: string, updates: Partial<Book>): Promise<vo
   if (updates.syncStatus !== undefined) {
     sets.push("sync_status = ?");
     values.push(updates.syncStatus);
+  }
+  if (updates.sourceType !== undefined) {
+    sets.push("source_type = ?");
+    values.push(updates.sourceType || null);
+  }
+  if (updates.sourceInfo !== undefined) {
+    sets.push("source_info = ?");
+    values.push(updates.sourceInfo ? JSON.stringify(updates.sourceInfo) : null);
+  }
+  if (updates.sourceLastCheckedAt !== undefined) {
+    sets.push("source_last_checked_at = ?");
+    values.push(updates.sourceLastCheckedAt || null);
   }
 
   if (sets.length === 0) return;

@@ -121,6 +121,15 @@ const migrations: Migration[] = [
       "ALTER TABLE threads ADD COLUMN memory_message_count INTEGER DEFAULT 0",
     ],
   },
+  {
+    version: 14,
+    description: "Add book source tracking for auto-update from WebDAV sources",
+    up: [
+      "ALTER TABLE books ADD COLUMN source_type TEXT",
+      "ALTER TABLE books ADD COLUMN source_info TEXT",
+      "ALTER TABLE books ADD COLUMN source_last_checked_at INTEGER",
+    ],
+  },
 ];
 
 /** Run pending migrations */

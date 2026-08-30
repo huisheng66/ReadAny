@@ -4,6 +4,7 @@
  */
 import { AppLayout } from "@/components/layout/AppLayout";
 import { UpdateNotification } from "@/components/layout/UpdateNotification";
+import { useSourceSync } from "@/hooks/use-source-sync";
 import { useAutoSync } from "@/hooks/use-sync";
 import { DesktopSyncAdapter } from "@/lib/sync/sync-adapter-desktop";
 import { setSyncAdapter } from "@readany/core/sync";
@@ -14,6 +15,7 @@ setSyncAdapter(new DesktopSyncAdapter());
 
 export default function App() {
   useAutoSync();
+  useSourceSync();
 
   return (
     <>
