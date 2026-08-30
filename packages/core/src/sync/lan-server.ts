@@ -19,6 +19,25 @@ import { collectChanges, type DeviceSyncPayload } from "./simple-sync";
 
 const LAN_SYNC_DIR = "/readany/sync";
 
+/** 配对码失败限速:5 分钟窗口内 10 次失败后全局暂停 */
+const PAIR_FAIL_WINDOW_MS = 5 * 60 * 1000;
+const PAIR_FAIL_LIMIT = 10;
+
+/**
+ * 常量时间字符串比较:长度不同立即 false(长度本身不构成泄漏),
+ * 等长时逐字节异或累积差异,避免逐字符短路提前返回
+ */
+function timingSafeEqualStr(a: string | undefined, b: string): boolean {
+  if (!a || a.length !== b.length) return false;
+  const aBytes = new TextEncoder().encode(a);
+  const bBytes = new TextEncoder().encode(b);
+  let diff = 0;
+  for (let i = 0; i < bBytes.length; i++) {
+    diff |= aBytes[i] ^ bBytes[i];
+  }
+  return diff === 0;
+}
+
 function getLanDeviceSnapshotPath(deviceId: string): string {
   return `${LAN_SYNC_DIR}/device-${deviceId}.json`;
 }
@@ -336,6 +355,8 @@ export class LANServer {
   private abortController: AbortController | null = null;
   private serverHandle: unknown = null;
   private manualIP: string | null = null;
+  /** 配对码验证失败时间戳(全局):5 分钟窗口 10 次失败后暂停接受请求 */
+  private pairFailures: number[] = [];
 
   constructor(config: LANServerConfig) {
     this.port = config.port ?? 0; // 0 means auto-assign
@@ -461,10 +482,19 @@ export class LANServer {
     path: string,
     headers: Record<string, string>,
   ): Promise<{ status: number; body?: Uint8Array; headers?: Record<string, string> }> {
+    // 配对码连续失败限速:HTTP 层不透传客户端 IP,采用全局窗口;
+    // 配对是短生命周期操作,误伤面可接受
+    const now = Date.now();
+    this.pairFailures = this.pairFailures.filter((t) => t > now - PAIR_FAIL_WINDOW_MS);
+    if (this.pairFailures.length >= PAIR_FAIL_LIMIT) {
+      return { status: 429, body: new TextEncoder().encode("Too many pairing attempts") };
+    }
+
     // Verify pair code (headers may be lowercased by HTTP layer)
     const pairCodeKey = Object.keys(headers).find(k => k.toLowerCase() === "x-pair-code");
     const clientPairCode = pairCodeKey ? headers[pairCodeKey] : undefined;
-    if (clientPairCode !== this.pairCode) {
+    if (!timingSafeEqualStr(clientPairCode, this.pairCode)) {
+      this.pairFailures.push(now);
       console.warn(`[LAN Server] Pair code mismatch from client`);
       return { status: 403, body: new TextEncoder().encode("Forbidden") };
     }

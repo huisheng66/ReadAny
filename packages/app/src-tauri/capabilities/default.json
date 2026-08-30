@@ -38,7 +38,10 @@
         { "path": "$DESKTOP/**" },
         { "path": "$DOCUMENT/**" },
         { "path": "$DOWNLOAD/**" },
-        { "path": "**" }
+        { "path": "/Volumes/**" },
+        { "path": "/media/**" },
+        { "path": "/run/media/**" },
+        { "path": "/mnt/**" }
       ]
     },
     "dialog:default",

@@ -43,7 +43,10 @@
             "$DESKTOP/**",
             "$DOCUMENT/**",
             "$DOWNLOAD/**",
-            "**"
+            "/Volumes/**",
+            "/media/**",
+            "/run/media/**",
+            "/mnt/**"
           ]
         }
       }

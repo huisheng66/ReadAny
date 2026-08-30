@@ -1489,8 +1489,10 @@ export function ReaderScreen({ route, navigation }: Props) {
             domStorageEnabled
             cacheEnabled={false}
             allowFileAccess
-            allowFileAccessFromFileURLs
-            allowUniversalAccessFromFileURLs
+            // 书内容经由本地静态服务(http://127.0.0.1)提供,reader 页面无需
+            // file:// 跨源 XHR;关闭后恶意 EPUB 脚本无法借 file:// 读本地文件
+            allowFileAccessFromFileURLs={false}
+            allowUniversalAccessFromFileURLs={false}
             allowsInlineMediaPlayback
             scrollEnabled={false}
             showsVerticalScrollIndicator={false}

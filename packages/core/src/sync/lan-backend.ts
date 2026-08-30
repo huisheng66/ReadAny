@@ -171,10 +171,12 @@ export function createLANBackend(
 }
 
 /**
- * Generate a 6-digit pair code.
+ * Generate a 6-digit pair code using a CSPRNG (Math.random is predictable).
  */
 export function generatePairCode(): string {
-  return Math.floor(100000 + Math.random() * 900000).toString();
+  const buf = new Uint32Array(1);
+  crypto.getRandomValues(buf);
+  return String(100000 + (buf[0] % 900000));
 }
 
 /**
