@@ -158,8 +158,14 @@ export async function runMigrations(): Promise<void> {
       for (const sql of statements) {
         try {
           await db.execute(sql);
-        } catch {
-          // Migration SQL may fail if already applied (e.g., column already exists)
+        } catch (err) {
+          // "column already exists" 属于幂等重放,可忽略;其他错误必须抛出——
+          // 否则版本号照常推进,之后依赖新列的写入会一直静默失败且永不重试
+          const message = err instanceof Error ? err.message : String(err);
+          if (!/duplicate column/i.test(message)) {
+            throw err;
+          }
+          console.warn(`[Migration] v${migration.version}: ${message}`);
         }
       }
       await db.execute(

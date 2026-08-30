@@ -74,6 +74,8 @@ export interface IPlatformService {
   mkdir(path: string): Promise<void>;
   exists(path: string): Promise<boolean>;
   deleteFile(path: string): Promise<void>;
+  /** 原子重命名(同盘移动),支持的平台可选实现;不支持时调用方需退化为直接覆写 */
+  rename?(from: string, to: string): Promise<void>;
   /** System app data dir — used only for bootstrap config (e.g. locating desktop-data-root.json). NOT for user data. */
   getAppDataDir(): Promise<string>;
   /** User data root — the directory where user-facing data (fonts, store JSON, etc.) should be stored.

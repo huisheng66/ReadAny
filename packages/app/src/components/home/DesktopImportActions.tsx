@@ -19,29 +19,29 @@ import { PasswordInput } from "@/components/ui/password-input";
 import { useAppStore } from "@/stores/app-store";
 import { useLibraryStore } from "@/stores/library-store";
 import { useSyncStore } from "@/stores/sync-store";
-import { cn } from "@readany/core/utils";
 import {
   type BookSourceSeed,
-  createImportDuplicateIndex,
   DEFAULT_WEBDAV_IMPORT_REMOTE_ROOT,
-  findLikelyDuplicateBook,
-  getPlatformService,
   type ImportBooksResult,
-  normalizeImportIdentity,
   type PersistedWebDavImportInput,
-  resolveWebDavImportServerPath,
-  webDavOriginFromUrl,
   WEBDAV_IMPORT_TEMPORARY_CONFIG_KEY,
   WEBDAV_IMPORT_TEMPORARY_SECRET_KEY,
   type WebDavImportEntry,
   WebDavImportService,
   type WebDavImportSource,
   type WebDavImportSourceKind,
+  createImportDuplicateIndex,
+  findLikelyDuplicateBook,
+  getPlatformService,
+  normalizeImportIdentity,
+  resolveWebDavImportServerPath,
+  webDavOriginFromUrl,
 } from "@readany/core";
 import { SYNC_SECRET_KEYS } from "@readany/core/sync/sync-backend";
-import { mkdir, remove, writeFile } from "@tauri-apps/plugin-fs";
-import { open } from "@tauri-apps/plugin-dialog";
+import { cn } from "@readany/core/utils";
 import { join, tempDir } from "@tauri-apps/api/path";
+import { open } from "@tauri-apps/plugin-dialog";
+import { mkdir, remove, writeFile } from "@tauri-apps/plugin-fs";
 import {
   ArrowLeft,
   BookOpen,
@@ -54,13 +54,7 @@ import {
   Search,
   Upload,
 } from "lucide-react";
-import {
-  type ReactElement,
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import { type ReactElement, useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
@@ -131,7 +125,10 @@ function sanitizeFilename(name: string): string {
   return name.replace(/[\\/:*?"<>|]/g, "_").trim() || `book-${Date.now()}`;
 }
 
-function getSourceLabel(kind: WebDavImportSourceKind, t: ReturnType<typeof useTranslation>["t"]): string {
+function getSourceLabel(
+  kind: WebDavImportSourceKind,
+  t: ReturnType<typeof useTranslation>["t"],
+): string {
   return kind === "saved"
     ? t("library.importSourceSavedWebDav", "我的 WebDAV")
     : t("library.importSourceTemporaryWebDav", "连接其他 WebDAV");
@@ -185,7 +182,8 @@ function DesktopWebDavConnectDialog({
           setAllowInsecure(parsed.allowInsecure ?? false);
         }
         if (savedPassword) {
-          setPassword(savedPassword);
+          // 旧版本曾把密码明文存进 KV;按"这次导完就走"的承诺迁移清除,不再回填
+          void platform.kvRemoveItem(WEBDAV_IMPORT_TEMPORARY_SECRET_KEY).catch(() => undefined);
         }
       } catch (err) {
         console.warn("[import] failed to load saved WebDAV input", err);
@@ -199,7 +197,10 @@ function DesktopWebDavConnectDialog({
   }, [open]);
 
   const canSubmit =
-    url.trim().length > 0 && username.trim().length > 0 && password.trim().length > 0 && !submitting;
+    url.trim().length > 0 &&
+    username.trim().length > 0 &&
+    password.trim().length > 0 &&
+    !submitting;
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
@@ -222,10 +223,8 @@ function DesktopWebDavConnectDialog({
           remoteRoot: remoteRoot.trim(),
           allowInsecure,
         };
-        await Promise.all([
-          platform.kvSetItem(WEBDAV_IMPORT_TEMPORARY_CONFIG_KEY, JSON.stringify(persisted)),
-          platform.kvSetItem(WEBDAV_IMPORT_TEMPORARY_SECRET_KEY, password),
-        ]);
+        // 只记住连接配置(非敏感项);密码不再落盘,与弹窗"这次导完就走"的承诺一致
+        await platform.kvSetItem(WEBDAV_IMPORT_TEMPORARY_CONFIG_KEY, JSON.stringify(persisted));
       } catch (err) {
         console.warn("[import] failed to persist WebDAV input", err);
       }
@@ -251,17 +250,27 @@ function DesktopWebDavConnectDialog({
 
         <div className="space-y-4">
           <div className="space-y-2">
-            <label className="text-sm font-medium text-foreground">{t("settings.webdavUrl", "服务器地址")}</label>
-            <Input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://dav.example.com" />
+            <label className="text-sm font-medium text-foreground">
+              {t("settings.webdavUrl", "服务器地址")}
+            </label>
+            <Input
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              placeholder="https://dav.example.com"
+            />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">{t("settings.username", "用户名")}</label>
+              <label className="text-sm font-medium text-foreground">
+                {t("settings.username", "用户名")}
+              </label>
               <Input value={username} onChange={(e) => setUsername(e.target.value)} />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">{t("settings.password", "密码")}</label>
+              <label className="text-sm font-medium text-foreground">
+                {t("settings.password", "密码")}
+              </label>
               <PasswordInput value={password} onChange={(e) => setPassword(e.target.value)} />
             </div>
           </div>
@@ -273,7 +282,10 @@ function DesktopWebDavConnectDialog({
             <Input
               value={remoteRoot}
               onChange={(e) => setRemoteRoot(e.target.value)}
-              placeholder={t("library.webdavImportRemoteRootPlaceholder", "留空则从服务器基准目录开始")}
+              placeholder={t(
+                "library.webdavImportRemoteRootPlaceholder",
+                "留空则从服务器基准目录开始",
+              )}
             />
             <p className="text-xs leading-5 text-muted-foreground">
               {t(
@@ -484,6 +496,7 @@ function DesktopWebDavImportBrowserDialog({
               username: source.username,
               password: source.password,
               relativePath: resolveWebDavImportServerPath(source, entry.relativePath),
+              allowInsecure: source.allowInsecure === true,
             }))
           : undefined;
         const result = await importBooks(tempPaths, sources ? { sources } : undefined);
@@ -539,9 +552,7 @@ function DesktopWebDavImportBrowserDialog({
 
             <div className="inline-flex max-w-[320px] shrink-0 items-center rounded-full border bg-muted/40 px-3 py-1 text-xs text-muted-foreground">
               <span className="truncate">
-                {currentPath === "/"
-                  ? t("library.webdavImportRootLabel", "浏览起点")
-                  : currentPath}
+                {currentPath === "/" ? t("library.webdavImportRootLabel", "浏览起点") : currentPath}
               </span>
             </div>
           </div>
@@ -660,16 +671,24 @@ function DesktopWebDavImportBrowserDialog({
                     }}
                     className={cn(
                       "flex w-full items-center gap-3 rounded-2xl border bg-card px-4 py-3 text-left transition-colors",
-                      selected ? "border-primary/50 bg-primary/5" : "border-border hover:bg-accent/40",
+                      selected
+                        ? "border-primary/50 bg-primary/5"
+                        : "border-border hover:bg-accent/40",
                       !entry.isDirectory && !entry.importable && "opacity-65",
                     )}
                   >
                     <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                      {entry.isDirectory ? <FolderOpen className="size-4" /> : <BookOpen className="size-4" />}
+                      {entry.isDirectory ? (
+                        <FolderOpen className="size-4" />
+                      ) : (
+                        <BookOpen className="size-4" />
+                      )}
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <div className="truncate text-sm font-medium text-foreground">{entry.name}</div>
+                        <div className="truncate text-sm font-medium text-foreground">
+                          {entry.name}
+                        </div>
                         {!entry.isDirectory && likelyDuplicate && (
                           <span className="shrink-0 rounded-full bg-amber-500/12 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-300">
                             {t("library.webdavImportLikelyDuplicate", "可能重复")}
@@ -692,7 +711,9 @@ function DesktopWebDavImportBrowserDialog({
                       <div
                         className={cn(
                           "flex size-5 items-center justify-center rounded-full border",
-                          selected ? "border-primary bg-primary text-primary-foreground" : "border-muted-foreground/30 text-transparent",
+                          selected
+                            ? "border-primary bg-primary text-primary-foreground"
+                            : "border-muted-foreground/30 text-transparent",
                         )}
                       >
                         <Check className="size-3.5" />
@@ -727,7 +748,7 @@ function DesktopWebDavImportBrowserDialog({
                 onClick={() => void importEntries(selectedEntries)}
                 disabled={selectedEntries.length === 0 || importState.phase !== "idle"}
               >
-              {importState.phase === "idle" ? (
+                {importState.phase === "idle" ? (
                   <>
                     <Upload className="size-4" />
                     {selectedEntries.length > 0
@@ -773,7 +794,28 @@ export function DesktopImportActions({ children, align = "end" }: DesktopImportA
         filters: [
           {
             name: "Books",
-            extensions: ["epub", "EPUB", "pdf", "PDF", "mobi", "MOBI", "azw", "AZW", "azw3", "AZW3", "fb2", "FB2", "fbz", "FBZ", "txt", "TXT", "cbz", "CBZ", "umd", "UMD"],
+            extensions: [
+              "epub",
+              "EPUB",
+              "pdf",
+              "PDF",
+              "mobi",
+              "MOBI",
+              "azw",
+              "AZW",
+              "azw3",
+              "AZW3",
+              "fb2",
+              "FB2",
+              "fbz",
+              "FBZ",
+              "txt",
+              "TXT",
+              "cbz",
+              "CBZ",
+              "umd",
+              "UMD",
+            ],
           },
         ],
       } as const);

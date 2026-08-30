@@ -32,6 +32,22 @@ interface EpubMeta {
 }
 
 /**
+ * 书源密码只存数据库(source_info 列);写入磁盘缓存 JSON(readany-store/library-books.json)
+ * 时剥离,避免出现第二份明文凭据副本。DB 是同步凭据的唯一可信来源。
+ */
+function saveBooksCache(books: Book[]): void {
+  debouncedSave(
+    "library-books",
+    books.map((book) => {
+      if (!book.sourceInfo) return book;
+      const { password, ...sourceInfo } = book.sourceInfo;
+      void password;
+      return { ...book, sourceInfo: sourceInfo as BookSource };
+    }),
+  );
+}
+
+/**
  * Lightweight EPUB metadata + cover extraction.
  * Uses zip.js BlobReader for lazy/on-demand entry decompression — only reads
  * container.xml, OPF, and cover image entry. Does NOT decompress the entire ZIP.
@@ -757,7 +773,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
         activeGroupId: keepActiveGroupId(state.activeGroupId, groups),
       }));
       // Update the cache for next launch
-      debouncedSave("library-books", books);
+      saveBooksCache(books);
       debouncedSave("library-groups", groups);
       debouncedSave("library-tags", allTags);
     } catch (err) {
@@ -800,7 +816,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
     // Persist to DB (fire and forget)
     db.insertBook(book).catch((err) => console.error("Failed to insert book into database:", err));
     // Update FS cache
-    debouncedSave("library-books", get().books);
+    saveBooksCache(get().books);
   },
 
   removeBook: async (bookId, options = {}) => {
@@ -813,7 +829,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
       console.error("Failed to delete book from database:", err),
     );
     // Update FS cache
-    debouncedSave("library-books", get().books);
+    saveBooksCache(get().books);
 
     // Clean up files from app data dir (only for relative paths)
     if (book) {
@@ -863,7 +879,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
           : state.allTags,
     }));
     // Update FS cache
-    debouncedSave("library-books", get().books);
+    saveBooksCache(get().books);
     await db
       .updateBook(bookId, updates)
       .catch((err) => console.error("Failed to update book in database:", err));
@@ -930,11 +946,17 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
           }
 
           let deletedMatch = fileHash
-            ? await db.getDeletedBookByFileHash(fileHash).catch((err) => { console.warn("[Library] Failed to check deleted book by hash:", err); return null; })
+            ? await db.getDeletedBookByFileHash(fileHash).catch((err) => {
+                console.warn("[Library] Failed to check deleted book by hash:", err);
+                return null;
+              })
             : null;
           // Fallback: match by title if hash lookup failed (e.g. hash was null on first import)
           if (!deletedMatch && title) {
-            deletedMatch = await db.getDeletedBookByTitle(title).catch((err) => { console.warn("[Library] Failed to check deleted book by title:", err); return null; });
+            deletedMatch = await db.getDeletedBookByTitle(title).catch((err) => {
+              console.warn("[Library] Failed to check deleted book by title:", err);
+              return null;
+            });
           }
           const bookId = deletedMatch?.id ?? crypto.randomUUID();
 
@@ -1097,6 +1119,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
                   username: sourceSeed.username,
                   password: sourceSeed.password,
                   relativePath: sourceSeed.relativePath,
+                  allowInsecure: sourceSeed.allowInsecure === true,
                   novelId: sourceJson.novelId,
                   chapterCount: sourceJson.chapterCount,
                 };
@@ -1149,7 +1172,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
               sourceInfo: book.sourceInfo,
               lastOpenedAt: Date.now(),
             }).catch((err) => console.error("Failed to restore deleted book from database:", err));
-            debouncedSave("library-books", get().books);
+            saveBooksCache(get().books);
           } else {
             get().addBook(book);
           }
@@ -1167,9 +1190,8 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
           ) {
             triggerVectorizeBook(book.id, relativePath, (progress) => {
               // Update book's vectorizeProgress so BookCard can show it
-              const pct = progress.totalChunks > 0
-                ? progress.processedChunks / progress.totalChunks
-                : 0;
+              const pct =
+                progress.totalChunks > 0 ? progress.processedChunks / progress.totalChunks : 0;
               get().updateBook(book.id, { vectorizeProgress: pct });
             }).catch((err) => {
               console.warn(`[importBooks] Auto-vectorize failed for ${title}:`, err);
@@ -1220,7 +1242,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
         syncStatus: "local",
         lastOpenedAt: restoredBook.lastOpenedAt,
       });
-      debouncedSave("library-books", get().books);
+      saveBooksCache(get().books);
     } catch (err) {
       console.error("Failed to restore deleted book from database:", err);
       return null;
@@ -1288,7 +1310,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
         book.groupId === groupId ? { ...book, groupId: undefined } : book,
       );
       debouncedSave("library-groups", groups);
-      debouncedSave("library-books", books);
+      saveBooksCache(books);
       return {
         groups,
         books,
@@ -1305,7 +1327,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
         activeGroupId: keepActiveGroupId(state.activeGroupId, groups),
       }));
       debouncedSave("library-groups", groups);
-      debouncedSave("library-books", books);
+      saveBooksCache(books);
     } catch (err) {
       console.error("Failed to delete group:", err);
     }
@@ -1321,7 +1343,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
       const books = state.books.map((book) =>
         targetIds.has(book.id) ? { ...book, groupId } : book,
       );
-      debouncedSave("library-books", books);
+      saveBooksCache(books);
       return { books };
     });
     for (const bookId of bookIds) {
@@ -1343,13 +1365,15 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
         b.tags.includes(tag) ? { ...b, tags: b.tags.filter((t) => t !== tag) } : b,
       );
       debouncedSave("library-tags", allTags);
-      debouncedSave("library-books", books);
+      saveBooksCache(books);
       return { allTags, books, activeTag: state.activeTag === tag ? "" : state.activeTag };
     });
     // Persist book tag changes to DB
     const books = get().books;
     for (const b of books) {
-      db.updateBook(b.id, { tags: b.tags }).catch((err) => console.warn("[Library] Failed to update book tags:", err));
+      db.updateBook(b.id, { tags: b.tags }).catch((err) =>
+        console.warn("[Library] Failed to update book tags:", err),
+      );
     }
   },
 
@@ -1364,12 +1388,14 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
           : b,
       );
       debouncedSave("library-tags", allTags);
-      debouncedSave("library-books", books);
+      saveBooksCache(books);
       return { allTags, books, activeTag: state.activeTag === oldName ? trimmed : state.activeTag };
     });
     for (const b of get().books) {
       if (b.tags.includes(trimmed)) {
-        db.updateBook(b.id, { tags: b.tags }).catch((err) => console.warn("[Library] Failed to update book tags:", err));
+        db.updateBook(b.id, { tags: b.tags }).catch((err) =>
+          console.warn("[Library] Failed to update book tags:", err),
+        );
       }
     }
   },
@@ -1381,12 +1407,15 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
       );
       // Ensure tag is in allTags
       const allTags = state.allTags.includes(tag) ? state.allTags : [...state.allTags, tag].sort();
-      debouncedSave("library-books", books);
+      saveBooksCache(books);
       debouncedSave("library-tags", allTags);
       return { books, allTags };
     });
     const book = get().books.find((b) => b.id === bookId);
-    if (book) db.updateBook(bookId, { tags: book.tags }).catch((err) => console.warn("[Library] Failed to update book tags:", err));
+    if (book)
+      db.updateBook(bookId, { tags: book.tags }).catch((err) =>
+        console.warn("[Library] Failed to update book tags:", err),
+      );
   },
 
   removeTagFromBook: (bookId, tag) => {
@@ -1394,10 +1423,13 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
       const books = state.books.map((b) =>
         b.id === bookId ? { ...b, tags: b.tags.filter((t) => t !== tag) } : b,
       );
-      debouncedSave("library-books", books);
+      saveBooksCache(books);
       return { books };
     });
     const book = get().books.find((b) => b.id === bookId);
-    if (book) db.updateBook(bookId, { tags: book.tags }).catch((err) => console.warn("[Library] Failed to update book tags:", err));
+    if (book)
+      db.updateBook(bookId, { tags: book.tags }).catch((err) =>
+        console.warn("[Library] Failed to update book tags:", err),
+      );
   },
 }));

@@ -47,6 +47,13 @@ export interface BookSource {
   chapterCount: number;
   etag?: string;
   lastModified?: number;
+  /** 下载内容的 Content-Length,ETag 缺失时作为次级变更比较键 */
+  contentLength?: number;
+  /**
+   * 是否接受自签名/无效证书。随书源持久化;
+   * 旧数据无此字段时按 true 处理以保持既有行为,新导入始终显式写入。
+   */
+  allowInsecure?: boolean;
 }
 
 /**
@@ -60,6 +67,7 @@ export interface BookSourceSeed {
   username: string;
   password: string;
   relativePath: string;
+  allowInsecure?: boolean;
 }
 
 export interface Book {

@@ -118,6 +118,11 @@ export class TauriPlatformService implements IPlatformService {
     await remove(path);
   }
 
+  async rename(from: string, to: string): Promise<void> {
+    const { rename } = await import("@tauri-apps/plugin-fs");
+    await rename(from, to);
+  }
+
   async getAppDataDir(): Promise<string> {
     const { appDataDir } = await import("@tauri-apps/api/path");
     return appDataDir();
@@ -195,10 +200,10 @@ export class TauriPlatformService implements IPlatformService {
       ...fetchOptions
     } = options ?? {};
     const tauriOptions = allowInsecure
-      ? {
+      ? ({
           ...fetchOptions,
           danger: { acceptInvalidCerts: true, acceptInvalidHostnames: true },
-        } as any
+        } as any)
       : fetchOptions;
     try {
       return await tauriFetch(url, tauriOptions);

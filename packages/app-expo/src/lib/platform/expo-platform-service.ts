@@ -86,6 +86,10 @@ export class ExpoPlatformService implements IPlatformService {
     }
   }
 
+  async rename(from: string, to: string): Promise<void> {
+    await LegacyFS.moveAsync({ from, to });
+  }
+
   async getAppDataDir(): Promise<string> {
     return Paths.document.uri;
   }
