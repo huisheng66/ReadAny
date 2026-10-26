@@ -9,16 +9,24 @@ import { createRoot } from "react-dom/client";
 import App from "./App";
 import "./styles/globals.css";
 import { setEmbeddingWorkerFactory, setStreamingFetch } from "@readany/core/ai";
-import { BUILTIN_EMBEDDING_MODELS } from "@readany/core/ai/builtin-embedding-models";
 import { onLibraryChanged } from "@readany/core/events/library-events";
 import { installFeedbackLogCapture, setFeedbackWorkerUrl } from "@readany/core/feedback";
-import { setVectorDB } from "@readany/core/rag";
+import {
+  EmbeddingService,
+  clearSearchConfiguration,
+  configureSearch,
+  createBuiltinEmbeddingService,
+  normalizeEmbeddingEndpoint,
+  setVectorDB,
+} from "@readany/core/rag";
 import { setPlatformService } from "@readany/core/services";
+import { setTheme as setTauriTheme } from "@tauri-apps/api/app";
 import { fetch as tauriFetch } from "@tauri-apps/plugin-http";
+import { shouldSuppressNativeContextMenu } from "./lib/environment";
 import { TauriPlatformService } from "./lib/platform/tauri-platform-service";
+import { registerDesktopFallbackContentProvider } from "./lib/rag/fallback-content-provider";
 import { syncLegacyDesktopLibraryRootConfig } from "./lib/storage/desktop-library-root";
 import { TauriVectorDB } from "./lib/tauri-vector-db";
-import { registerDesktopFallbackContentProvider } from "./lib/rag/fallback-content-provider";
 import { useLibraryStore } from "./stores/library-store";
 import { flushAllWrites } from "./stores/persist";
 import { useVectorModelStore } from "./stores/vector-model-store";
@@ -28,6 +36,29 @@ installFeedbackLogCapture();
 
 // 自有 Worker 地址；未配置时走本地 mock，避免提交到上游仓库
 const feedbackWorkerUrl = import.meta.env.VITE_FEEDBACK_WORKER_URL?.trim() || "";
+
+// Suppress the WebView's native context menu in production builds; dev keeps
+// it so the native menu (Inspect Element etc.) stays available for debugging.
+// Editable areas get a slim custom menu (Undo/Cut/Copy/Paste/Select All) from
+// the ContextMenu component; the reader's sandboxed iframe is handled
+// separately in registerIframeEventHandlers. Without this, the OS/WebView2
+// default menu (Inspect etc.) pops up over the app.
+if (shouldSuppressNativeContextMenu) {
+  document.addEventListener("contextmenu", (event) => event.preventDefault(), true);
+}
+
+// Keep the WebView color scheme in sync with the app theme so book CSS that
+// relies on light-dark() / @media(prefers-color-scheme) follows the app theme
+// instead of the OS scheme (e.g. sepia maps to a light scheme, so borders/text
+// in light-mode colors stay visible instead of the OS dark-mode colors).
+function syncSystemTheme() {
+  const theme = document.documentElement.getAttribute("data-theme");
+  void setTauriTheme(theme === "dark" ? "dark" : "light").catch(() => {});
+}
+new MutationObserver(syncSystemTheme).observe(document.documentElement, {
+  attributes: true,
+  attributeFilter: ["data-theme"],
+});
 setFeedbackWorkerUrl(feedbackWorkerUrl);
 
 // Register platform service before any database/core operations
@@ -47,6 +78,53 @@ setEmbeddingWorkerFactory(
     new Worker(new URL("@readany/core/ai/embedding-worker", import.meta.url), { type: "module" }),
 );
 
+/**
+ * The vectorization pipeline configures its embedding source independently from
+ * search. Keep the query-side service aligned with the active vector-model setting
+ * so Reader Agent ragSearch can generate query embeddings as well.
+ */
+function configureRagSearchFromVectorModelStore(): void {
+  const state = useVectorModelStore.getState();
+  if (!state.vectorModelEnabled) {
+    clearSearchConfiguration();
+    return;
+  }
+
+  if (state.vectorModelMode === "builtin" && state.selectedBuiltinModelId) {
+    configureSearch(createBuiltinEmbeddingService(state.selectedBuiltinModelId));
+    return;
+  }
+
+  const remoteModel = state.getSelectedVectorModel();
+  if (state.vectorModelMode === "remote" && remoteModel) {
+    configureSearch(
+      new EmbeddingService({
+        model: {
+          id: remoteModel.modelId,
+          name: remoteModel.name || remoteModel.modelId,
+          dimensions: remoteModel.dimension ?? 0,
+          maxTokens: 8192,
+          provider: "openai",
+        },
+        apiKey: remoteModel.apiKey || "local",
+        baseUrl: remoteModel.url,
+      }),
+      {
+        kind: "remote",
+        modelId: remoteModel.modelId,
+        endpoint: normalizeEmbeddingEndpoint(remoteModel.url),
+        dimensions: remoteModel.dimension ?? 0,
+      },
+    );
+    return;
+  }
+
+  clearSearchConfiguration();
+}
+
+configureRagSearchFromVectorModelStore();
+useVectorModelStore.subscribe(configureRagSearchFromVectorModelStore);
+
 // Set vector database reference (initialized in Rust setup)
 const tauriVectorDB = new TauriVectorDB();
 setVectorDB(tauriVectorDB);
@@ -54,37 +132,16 @@ console.log("[VectorDB] TauriVectorDB reference set");
 
 const desktopDataRootReady = syncLegacyDesktopLibraryRootConfig().catch(console.error);
 
-// Align vector DB dimension with the currently selected model
-(async () => {
-  try {
-    await desktopDataRootReady;
-    const { vectorModelMode, selectedBuiltinModelId, getSelectedVectorModel } =
-      useVectorModelStore.getState();
-    let dimension: number | undefined;
-
-    if (vectorModelMode === "builtin" && selectedBuiltinModelId) {
-      const model = BUILTIN_EMBEDDING_MODELS.find((m) => m.id === selectedBuiltinModelId);
-      dimension = model?.dimension;
-    } else if (vectorModelMode === "remote") {
-      const remoteModel = getSelectedVectorModel();
-      dimension = remoteModel?.dimension;
-    }
-
-    if (dimension && dimension !== 384) {
-      await tauriVectorDB.reinit(dimension);
-      console.log(`[VectorDB] Aligned dimension to ${dimension}`);
-    }
-  } catch (err) {
-    console.warn("[VectorDB] Failed to align dimension on startup:", err);
-  }
-})();
-
 // Ensure i18n is fully initialized before rendering
 i18nReady.then(() => {
   desktopDataRootReady.catch(console.error);
 
   // Restore saved theme from localStorage (light / dark / sepia / green / system)
   restoreThemeOnBoot();
+
+  // Apply the restored theme to the WebView color scheme (observer above also
+  // keeps it in sync on any later theme switch).
+  syncSystemTheme();
 
   // Restore saved language from platform KV storage
   initI18nLanguage().catch(console.error);

@@ -2,6 +2,7 @@ import { DarkModeSvg } from "@/components/DarkModeSvg";
 import { type ThemeMode, useTheme } from "@/styles/ThemeContext";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { changeAndPersistLanguage } from "@readany/core/i18n";
 import { Coffee, Moon, Sun } from "lucide-react-native";
 import { useTranslation } from "react-i18next";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
@@ -15,7 +16,7 @@ type NavProp = NativeStackNavigationProp<OnboardingStackParamList, "Appearance">
 export function AppearancePage() {
   const { t, i18n } = useTranslation();
   const navigation = useNavigation<NavProp>();
-  const { mode: currentTheme, setMode: setTheme, colors, isDark } = useTheme();
+  const { mode: currentTheme, setMode: setTheme, colors } = useTheme();
   const insets = useSafeAreaInsets();
 
   const handleNext = () => navigation.navigate("AI");
@@ -33,6 +34,11 @@ export function AppearancePage() {
       icon: <Moon size={24} color={colors.foreground} />,
     },
     {
+      id: "oled",
+      name: t("settings.oled", "OLED Black"),
+      icon: <Moon size={24} color={colors.foreground} />,
+    },
+    {
       id: "sepia",
       name: t("settings.sepia", "Sepia"),
       icon: <Coffee size={24} color={colors.foreground} />,
@@ -41,7 +47,6 @@ export function AppearancePage() {
 
   const handleLangChange = async (code: string) => {
     try {
-      const { changeAndPersistLanguage } = await import("@readany/core/i18n");
       await changeAndPersistLanguage(code);
     } catch (err) {
       console.warn("[Settings] Failed to change and persist language:", err);
@@ -220,9 +225,9 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     marginBottom: 12,
   },
-  themeGrid: { flexDirection: "row", gap: 8 },
+  themeGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   themeBtn: {
-    flex: 1,
+    width: "48%",
     alignItems: "center",
     paddingVertical: 12,
     borderRadius: 12,

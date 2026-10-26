@@ -595,6 +595,7 @@ export function ReaderScreen({ route, navigation }: Props) {
         useBookFonts: settings.useBookFonts,
         viewMode: settings.viewMode,
         paginatedLayout: settings.paginatedLayout,
+        smoothReading: settings.smoothReading === true,
         customFontFaceCSS: fontCSS,
         customFontFamily: fontFamily ?? "",
       });
@@ -1144,6 +1145,7 @@ export function ReaderScreen({ route, navigation }: Props) {
             useBookFonts: readSettings.useBookFonts,
             viewMode: readSettings.viewMode,
             paginatedLayout: readSettings.paginatedLayout,
+            smoothReading: readSettings.smoothReading === true,
           },
         });
 
@@ -1152,6 +1154,7 @@ export function ReaderScreen({ route, navigation }: Props) {
           foreground: colors.foreground,
           muted: colors.mutedForeground,
           primary: colors.primary,
+          themeMode,
         });
       } catch (err: any) {
         console.error("[ReaderScreen] Failed to load book:", err);
@@ -1229,6 +1232,7 @@ export function ReaderScreen({ route, navigation }: Props) {
       foreground: colors.foreground,
       muted: colors.mutedForeground,
       primary: colors.primary,
+      themeMode,
     });
   }, [themeMode, webViewReady]);
 

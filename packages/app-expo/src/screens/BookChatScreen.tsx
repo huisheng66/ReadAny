@@ -13,6 +13,7 @@ import {
   Image,
   Keyboard,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -21,6 +22,7 @@ import {
   TouchableWithoutFeedback,
   View,
 } from "react-native";
+import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useStreamingChat } from "@/hooks";
@@ -235,7 +237,8 @@ export function BookChatScreen({ route, navigation }: Props) {
     return convertToMessageV2(activeThread.messages);
   }, [activeThread]);
 
-  const activeCurrentMessage = activeThread?.id === currentMessage?.threadId ? currentMessage : null;
+  const activeCurrentMessage =
+    activeThread?.id === currentMessage?.threadId ? currentMessage : null;
   const allMessages = useMemo(
     () => mergeMessagesWithStreaming(messagesV2, activeCurrentMessage, isStreaming),
     [activeCurrentMessage, isStreaming, messagesV2],
@@ -525,7 +528,20 @@ export function BookChatScreen({ route, navigation }: Props) {
             </View>
           </View>
 
-          <View style={s.content}>
+          <KeyboardAvoidingView
+            style={s.content}
+            behavior="height"
+            enabled={Platform.OS === "android"}
+            keyboardVerticalOffset={insets.top}
+          >
+            {selectedText?.trim() ? (
+              <View style={s.selectionContext} accessibilityLabel="Selected text context">
+                <Text style={s.selectionContextLabel}>{t("chat.selectedText", "选中文本")}</Text>
+                <Text style={s.selectionContextText} numberOfLines={4}>
+                  “{selectedText.trim()}”
+                </Text>
+              </View>
+            ) : null}
             <View style={s.content}>
               {allMessages.length > 0 ? (
                 <MessageList
@@ -572,7 +588,7 @@ export function BookChatScreen({ route, navigation }: Props) {
               onRemoveQuote={handleRemoveQuote}
               keyboardBottomOffset={insets.bottom}
             />
-          </View>
+          </KeyboardAvoidingView>
         </View>
       </View>
 
@@ -661,6 +677,28 @@ const makeStyles = (
       justifyContent: "center",
     },
     content: { flex: 1 },
+    selectionContext: {
+      marginHorizontal: layout.isTabletLandscape ? 20 : 12,
+      marginTop: 8,
+      marginBottom: 4,
+      paddingHorizontal: 12,
+      paddingVertical: 9,
+      borderRadius: radius.md,
+      borderLeftWidth: 3,
+      borderLeftColor: colors.primary,
+      backgroundColor: withOpacity(colors.muted, 0.72),
+    },
+    selectionContextLabel: {
+      fontSize: fs.xs,
+      fontWeight: fw.semibold,
+      color: colors.primary,
+      marginBottom: 3,
+    },
+    selectionContextText: {
+      fontSize: fs.sm,
+      lineHeight: 19,
+      color: colors.foreground,
+    },
     emptyContainer: {
       flex: 1,
       justifyContent: "center",

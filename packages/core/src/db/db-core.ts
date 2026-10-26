@@ -310,12 +310,13 @@ export async function insertTombstone(
   database: IDatabase,
   id: string,
   tableName: string,
+  bookId?: string,
 ): Promise<void> {
   const deviceId = await getDeviceId();
   try {
     await database.execute(
-      "INSERT OR REPLACE INTO sync_tombstones (id, table_name, deleted_at, device_id) VALUES (?, ?, ?, ?)",
-      [id, tableName, Date.now(), deviceId],
+      "INSERT OR REPLACE INTO sync_tombstones (id, table_name, deleted_at, device_id, book_id) VALUES (?, ?, ?, ?, ?)",
+      [id, tableName, Date.now(), deviceId, bookId ?? null],
     );
   } catch {
     // sync_tombstones table might not exist on older schema
@@ -573,6 +574,13 @@ export async function initDatabase(): Promise<void> {
       await database.execute(
         "CREATE INDEX IF NOT EXISTS idx_tombstones_deleted_at ON sync_tombstones(deleted_at)",
       );
+      // Migration 5b: attribute tombstones to their book so per-book sync can
+      // propagate annotation deletions inside the book's own sync file.
+      try {
+        await database.execute("ALTER TABLE sync_tombstones ADD COLUMN book_id TEXT");
+      } catch {
+        // Column already exists
+      }
 
       // Migration 6: Sync metadata table
       await database.execute(`
@@ -764,6 +772,19 @@ export async function initLocalDatabase(): Promise<void> {
     )
   `);
 
+      // Local-only metadata: embeddings are not synced, so the model identity that
+      // produced them must live beside the local chunk/vector indexes.
+      await database.execute(`
+    CREATE TABLE IF NOT EXISTS vector_index_provenance (
+      book_id TEXT PRIMARY KEY,
+      model_kind TEXT NOT NULL,
+      model_id TEXT NOT NULL,
+      endpoint TEXT,
+      dimensions INTEGER NOT NULL,
+      created_at INTEGER NOT NULL
+    )
+  `);
+
       try {
         await database.execute(
           "ALTER TABLE chunks ADD COLUMN updated_at INTEGER NOT NULL DEFAULT 0",
@@ -885,9 +906,24 @@ export function serializeEmbedding(embedding?: number[]): Uint8Array | null {
 /** Deserialize bytes back to float32 embedding array */
 export function deserializeEmbedding(data: unknown): number[] | undefined {
   if (!data) return undefined;
-  // Data comes as an array of bytes from the SQL plugin
-  const bytes = data instanceof Uint8Array ? data : new Uint8Array(data as ArrayBuffer);
+  // Tauri's SQL plugin serializes Uint8Array parameters as a JSON byte array
+  // when writing to SQLite. That leaves a TEXT value such as "[63,172,...]"
+  // rather than a BLOB. Decode that persisted form before falling back to the
+  // native byte-array/BLOB forms used by other platforms.
+  let bytes: Uint8Array;
+  if (typeof data === "string") {
+    try {
+      const parsed = JSON.parse(data);
+      if (!Array.isArray(parsed)) return undefined;
+      bytes = new Uint8Array(parsed);
+    } catch {
+      return undefined;
+    }
+  } else {
+    bytes = data instanceof Uint8Array ? data : new Uint8Array(data as ArrayBuffer);
+  }
   if (bytes.length === 0) return undefined;
+  if (bytes.byteLength % Float32Array.BYTES_PER_ELEMENT !== 0) return undefined;
   const view = new Float32Array(bytes.buffer, bytes.byteOffset, bytes.byteLength / 4);
   return Array.from(view);
 }

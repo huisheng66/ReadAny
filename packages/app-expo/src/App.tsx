@@ -31,6 +31,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
+import { UAProbe } from "@/components/common/UAProbe";
 import { AnimatedSplash } from "@/components/splash/AnimatedSplash";
 import { rnSessionEventSource } from "@/hooks";
 import { setStreamingFetch } from "@readany/core/ai";
@@ -54,6 +55,7 @@ import { UpdateDialog } from "@/components/update/UpdateDialog";
 import { useUpdateChecker } from "@/hooks/use-update-checker";
 import { navigationRef } from "@/lib/navigationRef";
 import { ExpoPlatformService } from "@/lib/platform/expo-platform-service";
+import { subscribeRagSearchConfiguration } from "@/lib/rag/configure-search";
 import { MobileSyncAdapter } from "@/lib/sync/sync-adapter-mobile";
 import { RootNavigator } from "@/navigation/RootNavigator";
 import { useLibraryStore } from "@/stores/library-store";
@@ -86,11 +88,18 @@ export default function App() {
   const [bootError, setBootError] = useState<string | null>(null);
 
   useEffect(() => {
+    let unsubscribeRagSearch: (() => void) | undefined;
+
     async function bootstrap() {
       try {
         console.log("[App] bootstrap: register platform service");
         const platform = new ExpoPlatformService();
         setPlatformService(platform);
+
+        // Vectorization and Reader Agent queries use separate core paths.
+        // Synchronize the query-side service immediately and after settings
+        // hydration/changes so remote semantic search works on mobile too.
+        unsubscribeRagSearch = await subscribeRagSearchConfiguration();
 
         console.log("[App] bootstrap: register sync adapter");
         setSyncAdapter(new MobileSyncAdapter());
@@ -193,6 +202,7 @@ export default function App() {
       }
     }
     bootstrap();
+    return () => unsubscribeRagSearch?.();
   }, []);
 
   const handleSplashFinish = useCallback(() => {
@@ -252,7 +262,7 @@ export default function App() {
 }
 
 function AppInner() {
-  const { colors, isDark, mode } = useTheme();
+  const { colors, isDark } = useTheme();
   const loadBooks = useLibraryStore((s) => s.loadBooks);
   useUpdateChecker();
   useAutoSync(loadBooks);
@@ -277,11 +287,12 @@ function AppInner() {
       <KeyboardProvider>
         <SafeAreaProvider>
           <NavigationContainer theme={navTheme} ref={navigationRef}>
-            <StatusBar style={mode === "dark" ? "light" : "dark"} />
+            <StatusBar style={isDark ? "light" : "dark"} />
             <RootNavigator />
           </NavigationContainer>
           <UpdateDialog />
           <FloatingTTSBubble />
+          <UAProbe />
         </SafeAreaProvider>
       </KeyboardProvider>
     </GestureHandlerRootView>

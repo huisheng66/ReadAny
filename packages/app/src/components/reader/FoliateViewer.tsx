@@ -15,6 +15,13 @@ import type {
 } from "@readany/core/translation/chapter-translator";
 import { cleanText, isTTSFootnoteMarker, shouldSkipTTSNode } from "@readany/core/tts";
 import type { ViewSettings } from "@readany/core/types";
+import {
+  buildJustifyCss,
+  detectJustifyCapabilities,
+  pinAlignedBrContainers,
+  unpinAlignedBrContainers,
+  type JustifyCapabilities,
+} from "@readany/core/reader/justified-text";
 import { Overlayer } from "foliate-js/overlayer.js";
 import { marked } from "marked";
 /**
@@ -38,6 +45,64 @@ type AppTheme = "light" | "dark" | "sepia" | "green";
 
 const READER_OVERRIDE_STYLE_ID = "__readany_reader_overrides__";
 
+/**
+ * Justified body text — the full engine lives in core
+ * (packages/core/src/reader/justified-text.ts) and is shared with the mobile
+ * reader WebView: capability fallbacks for @layer/:has-less webviews, CSS
+ * generation (layered / :where()-zeroed / bare per capability set), and the
+ * alignment pinning with original-inline-value restore. This file only adds
+ * the desktop runtime bits: capability memoization for the app's own webview,
+ * and the Client Hints lookup for the full WebView2 build shown in About
+ * (see lib/webview-info.ts).
+ */
+let justifyCapabilitiesCache: JustifyCapabilities | null = null;
+
+function getJustifyCapabilities(): JustifyCapabilities {
+  if (!justifyCapabilitiesCache) {
+    justifyCapabilitiesCache = detectJustifyCapabilities(window);
+  }
+  return justifyCapabilitiesCache;
+}
+
+function getJustifyCss(): string {
+  return buildJustifyCss(getJustifyCapabilities());
+}
+
+function preserveAlignedBrContainers(doc: Document) {
+  pinAlignedBrContainers(doc, getJustifyCapabilities());
+}
+
+/**
+ * Unified per-document justify sync: tag the root so the @layer CSS scopes to
+ * horizontal text, always unpin (clean undo), then pin author-aligned <br>
+ * blocks when justify is on and the layout is supported. Mirrors the mobile
+ * justified-text.js apply().
+ */
+function syncJustifyForDoc(doc: Document, enabled: boolean) {
+  if (!doc) return;
+  // Reuse the reader's existing getDirection (already called on section load)
+  // to detect vertical writing — document-level, per section, matching foliate.
+  const isUnsupported = getDirection(doc).vertical;
+  const root = doc.documentElement;
+  if (root) {
+    if (isUnsupported) {
+      root.setAttribute("data-readany-vertical", "");
+    } else {
+      root.removeAttribute("data-readany-vertical");
+    }
+  }
+  // Idempotent: only unpin when justify is disabled or the layout is
+  // unsupported. When enabled we must NOT unpin first — re-running this on a
+  // later render (after the justify stylesheet is already injected) would
+  // clear a pinned center, and re-reading the alignment would see `start`
+  // (from :has(> br)) instead of the book's center, dropping the alignment.
+  if (!enabled || isUnsupported) {
+    unpinAlignedBrContainers(doc);
+    return;
+  }
+  preserveAlignedBrContainers(doc);
+}
+
 function getAppTheme(): AppTheme {
   if (typeof document === "undefined") return "dark";
   const theme = document.documentElement.getAttribute("data-theme");
@@ -47,6 +112,68 @@ function getAppTheme(): AppTheme {
 
 function getThemeColors(theme: AppTheme, settings?: ViewSettings) {
   return resolveReaderBackgroundColors(settings?.readerBackground, theme);
+}
+
+/** Per-theme CSS filter applied to PDF pages (fixed layout) in dark/sepia mode. */
+const PDF_THEME_FILTERS: Partial<Record<AppTheme, string>> = {
+  dark: "invert(0.93)",
+  // Numerically tuned (invert->sepia->contrast->brightness) so a white PDF page
+  // maps almost exactly to the sepia background #f0e6d2 (rgb 240,230,210);
+  // text lands on a readable warm dark brown.
+  sepia: "invert(0.245) sepia(0.286) contrast(1.328) brightness(1.005)",
+};
+
+/**
+ * Decide whether a PDF page is a "light text page" that should be theme-filtered
+ * (inverted / sepia-tinted) in dark/sepia mode. Photo-heavy or already-dark
+ * pages are left untouched so images don't turn into negatives.
+ */
+function analyzeCanvasIsLight(canvas: HTMLCanvasElement): boolean {
+  const size = 48;
+  const out = document.createElement("canvas");
+  out.width = size;
+  out.height = size;
+  const ctx = out.getContext("2d", { willReadFrequently: true });
+  if (!ctx) return true;
+  try {
+    ctx.drawImage(canvas, 0, 0, size, size);
+    const data = ctx.getImageData(0, 0, size, size).data;
+    let light = 0;
+    for (let i = 0; i < data.length; i += 4) {
+      const lum = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+      if (lum > 200) light++;
+    }
+    // A text page is predominantly light; downsampling washes thin text into
+    // gray, so only rely on how much of the page is clearly light.
+    return light / (size * size) > 0.55;
+  } catch {
+    return true;
+  }
+}
+
+/** The PDF page canvas is rendered asynchronously (pdf.js); wait until it appears. */
+function waitForPdfPageCanvas(doc: Document, timeoutMs = 5000): Promise<HTMLCanvasElement | null> {
+  return new Promise((resolve) => {
+    const win = doc.defaultView ?? window;
+    const raf =
+      typeof win.requestAnimationFrame === "function"
+        ? win.requestAnimationFrame.bind(win)
+        : (cb: FrameRequestCallback) => window.setTimeout(() => cb(performance.now()), 50);
+    const start = performance.now();
+    const check = () => {
+      const canvas = doc.querySelector<HTMLCanvasElement>("#canvas canvas");
+      if (canvas && canvas.width > 0 && canvas.height > 0) {
+        resolve(canvas);
+        return;
+      }
+      if (performance.now() - start > timeoutMs) {
+        resolve(null);
+        return;
+      }
+      raf(check);
+    };
+    check();
+  });
 }
 
 function getActiveContentDocument(view: FoliateView | null): Document | null {
@@ -729,9 +856,74 @@ export const FoliateViewer = forwardRef<FoliateViewerHandle, FoliateViewerProps>
     const containerRef = useRef<HTMLDivElement>(null);
     const viewRef = useRef<FoliateView | null>(null);
     const isViewCreated = useRef(false);
+    // PDF theme-filter state: per-book per-page light decision + doc -> index mapping
+    const pdfPageLightCacheRef = useRef<Map<string, Map<number, boolean>>>(new Map());
+    const pdfDocIndexRef = useRef<WeakMap<Document, number>>(new WeakMap());
     const [loading, setLoading] = useState(true);
     const [footnotePreview, setFootnotePreview] = useState<FootnotePreview | null>(null);
     const activeFootnoteKeyRef = useRef<string | null>(null);
+
+    const applyPdfPageThemeFilter = useCallback(
+      async (doc: Document, index: number, theme: AppTheme) => {
+        const filter = PDF_THEME_FILTERS[theme];
+        const iframe = doc.defaultView?.frameElement as HTMLIFrameElement | null;
+        if (!iframe) return;
+        const background = THEME_COLORS[theme].bg;
+        iframe.style.filter = "";
+        iframe.style.backgroundColor = background;
+        doc.documentElement.style.backgroundColor = background;
+        if (doc.body) doc.body.style.backgroundColor = background;
+        if (!filter) {
+          doc.documentElement.style.setProperty("--readany-pdf-filter", "none");
+          return;
+        }
+        let cache = pdfPageLightCacheRef.current.get(bookKey);
+        if (!cache) {
+          cache = new Map();
+          pdfPageLightCacheRef.current.set(bookKey, cache);
+        }
+        let isLight = cache.get(index);
+        if (isLight === undefined) {
+          const canvas = await waitForPdfPageCanvas(doc);
+          isLight = canvas ? analyzeCanvasIsLight(canvas) : true;
+          cache.set(index, isLight);
+        }
+        doc.documentElement.style.setProperty("--readany-pdf-filter", isLight ? filter : "none");
+      },
+      [bookKey],
+    );
+
+    const reapplyPdfThemeFilters = useCallback(
+      (theme: AppTheme) => {
+        const view = viewRef.current;
+        if (!view || format !== "PDF") return;
+        const filter = PDF_THEME_FILTERS[theme];
+        const cache = pdfPageLightCacheRef.current.get(bookKey);
+        const contents = view.renderer?.getContents?.() ?? [];
+        for (const content of contents) {
+          const doc = content?.doc as Document | undefined;
+          const iframe = doc?.defaultView?.frameElement as HTMLIFrameElement | null;
+          if (!doc || !iframe) continue;
+          const index = pdfDocIndexRef.current.get(doc);
+          if (index == null) continue;
+          const background = THEME_COLORS[theme].bg;
+          iframe.style.filter = "";
+          iframe.style.backgroundColor = background;
+          doc.documentElement.style.backgroundColor = background;
+          if (doc.body) doc.body.style.backgroundColor = background;
+          if (!filter) {
+            doc.documentElement.style.setProperty("--readany-pdf-filter", "none");
+            continue;
+          }
+          const isLight = cache?.get(index);
+          doc.documentElement.style.setProperty(
+            "--readany-pdf-filter",
+            isLight === false ? "none" : filter,
+          );
+        }
+      },
+      [format, bookKey],
+    );
 
     const isFixedLayout = isFixedLayoutBook(format, bookDoc);
     // Track when view is ready so hooks/events re-bind
@@ -755,6 +947,7 @@ export const FoliateViewer = forwardRef<FoliateViewerHandle, FoliateViewerProps>
             const view = viewRef.current;
             if (view && viewReady) {
               applyRendererStyles(view, viewSettings, isFixedLayout, newTheme);
+              reapplyPdfThemeFilters(newTheme);
             }
             return newTheme;
           }
@@ -768,7 +961,7 @@ export const FoliateViewer = forwardRef<FoliateViewerHandle, FoliateViewerProps>
       });
 
       return () => observer.disconnect();
-    }, [viewSettings, isFixedLayout, viewReady]);
+    }, [viewSettings, isFixedLayout, viewReady, reapplyPdfThemeFilters]);
 
     const ttsHighlightKeyRef = useRef<string | null>(null);
 
@@ -1877,6 +2070,12 @@ export const FoliateViewer = forwardRef<FoliateViewerHandle, FoliateViewerProps>
           onSectionLoad?.(detail.index);
         }
 
+        // PDF: follow the app theme with per-page smart inversion (dark/sepia)
+        if (format === "PDF" && detail.doc) {
+          pdfDocIndexRef.current.set(detail.doc, detail.index ?? 0);
+          void applyPdfPageThemeFilter(detail.doc, detail.index ?? 0, appTheme);
+        }
+
         // Inject ruby annotations if enabled for this book
         void (async () => {
           try {
@@ -1899,7 +2098,16 @@ export const FoliateViewer = forwardRef<FoliateViewerHandle, FoliateViewerProps>
           }
         })();
       },
-      [appTheme, bookKey, viewSettings, onLoaded, onSectionLoad, isFixedLayout],
+      [
+        appTheme,
+        bookKey,
+        viewSettings,
+        onLoaded,
+        onSectionLoad,
+        isFixedLayout,
+        format,
+        applyPdfPageThemeFilter,
+      ],
     );
     const docLoadHandlerRef = useRef(docLoadHandlerImpl);
     docLoadHandlerRef.current = docLoadHandlerImpl;
@@ -1916,13 +2124,15 @@ export const FoliateViewer = forwardRef<FoliateViewerHandle, FoliateViewerProps>
           viewRef.current?.renderer && typeof viewRef.current.renderer.pages === "number"
             ? viewRef.current.renderer.pages
             : null;
+        // renderer.page is 0-based and renderer.pages is the real page count:
+        // the renderer adds no padding pages around a section.
         const detail: RelocateDetail =
-          rendererPage != null && rendererPages != null && rendererPages > 2
+          rendererPage != null && rendererPages != null && rendererPages > 0
             ? {
                 ...rawDetail,
                 page: {
-                  current: Math.max(1, Math.min(rendererPage, rendererPages - 2)),
-                  total: Math.max(1, rendererPages - 2),
+                  current: Math.min(Math.max(rendererPage + 1, 1), rendererPages),
+                  total: rendererPages,
                 },
               }
             : rawDetail;
@@ -2328,6 +2538,23 @@ export const FoliateViewer = forwardRef<FoliateViewerHandle, FoliateViewerProps>
         };
 
         const handlePointerUp = (ev: PointerEvent) => {
+          // Right-click is reserved for context-menu suppression only — never
+          // treat it as a page-turn tap (or any other pointer action).
+          if (ev.button === 2) return;
+          // Clicks on links are handled by their own navigation (internal
+          // links / footnotes); never treat them as page-turn taps. Use
+          // composedPath() with a realm-independent nodeType check: ev.target
+          // can be a Text node, and elements from content iframes fail
+          // `instanceof Element` (different realm than the parent window).
+          let pointerUpOnLink = false;
+          try {
+            const path = ev.composedPath?.() ?? [];
+            pointerUpOnLink = path.some((node) => {
+              if (!node || (node as Node).nodeType !== 1) return false;
+              const el = node as Element;
+              return typeof el.closest === "function" && Boolean(el.closest("a[href]"));
+            });
+          } catch {}
           // Capture coordinates immediately (before setTimeout)
           const clientX = ev.clientX;
           const clientY = ev.clientY;
@@ -2386,7 +2613,7 @@ export const FoliateViewer = forwardRef<FoliateViewerHandle, FoliateViewerProps>
             } else {
               // No previous selection and no new selection
               // This is a simple click - toggle toolbar if there was no selection before
-              if (!hadSelectionOnPointerDown.current && !hasSelectionNow) {
+              if (!hadSelectionOnPointerDown.current && !hasSelectionNow && !pointerUpOnLink) {
                 // Send message to toggle toolbar
                 console.log("[ReaderTap][iframe:post]", {
                   bookKey,
@@ -2621,6 +2848,9 @@ export const FoliateViewer = forwardRef<FoliateViewerHandle, FoliateViewerProps>
       isViewCreated.current = true;
 
       const openBook = async () => {
+        // Reset PDF theme-filter caches when (re)opening a book
+        pdfPageLightCacheRef.current = new Map();
+        pdfDocIndexRef.current = new WeakMap();
         try {
           await import("foliate-js/view.js");
 
@@ -2695,9 +2925,14 @@ export const FoliateViewer = forwardRef<FoliateViewerHandle, FoliateViewerProps>
           view.addEventListener("link", linkHandler);
           setViewReady(true);
 
-          // Navigate to last location or start
+          // Navigate to last location or start.
+          // Fixed-layout books (PDF/CBZ) restore via their fake page CFI
+          // (epubcfi(/6/N)), which the PDF backend's resolveCFI maps back to
+          // the recorded page — same mechanism as annotation navigation.
           if (isFixedLayout) {
-            await view.init({});
+            console.log("[PDFRestore] init lastLocation =", JSON.stringify(lastLocation));
+            await view.init(lastLocation ? { lastLocation } : {});
+            console.log("[PDFRestore] init done, current index =", view.renderer?.index);
           } else if (lastLocation) {
             try {
               await view.init({ lastLocation });
@@ -2804,19 +3039,28 @@ export const FoliateViewer = forwardRef<FoliateViewerHandle, FoliateViewerProps>
     useEffect(() => {
       const view = viewRef.current;
       if (!view?.renderer) return;
-      if (isFixedLayout) {
-        applyRendererSettings(view, viewSettings, true, appTheme);
-        return;
-      }
-
-      applyReflowLayoutSettings(view, viewSettings);
+      applyRendererSettings(view, viewSettings, isFixedLayout, appTheme);
     }, [
       viewSettings.viewMode,
       viewSettings.paginatedLayout,
       viewSettings.fixedLayoutZoom,
+      viewSettings.pageMargin,
       isFixedLayout,
       appTheme,
     ]);
+
+    // Re-scale the content area when the window resizes (max-inline-size is
+    // computed from renderer.clientWidth at book-open).
+    useEffect(() => {
+      const handleResize = () => {
+        const view = viewRef.current;
+        if (view?.renderer && !isFixedLayout) {
+          applyRendererSettings(view, viewSettings, false, appTheme);
+        }
+      };
+      window.addEventListener("resize", handleResize);
+      return () => window.removeEventListener("resize", handleResize);
+    }, [viewSettings, isFixedLayout, appTheme]);
 
     const handleViewerShellClick = useCallback(
       (event: {
@@ -2946,6 +3190,10 @@ function applyDocumentStyles(
 
   normalizeBrOnlyParagraphs(doc);
   syncRemoteFontStylesInDocument(doc, settings.customFontCssUrls);
+  // Unify justify state: tag vertical/fixed roots, unpin (clean undo), then
+  // pin author-aligned <br> blocks BEFORE the override stylesheet (which
+  // carries the justify fallback) so getComputedStyle sees the book's own CSS.
+  syncJustifyForDoc(doc, settings.justifyBodyText !== false);
   syncReaderOverrideStylesInDocument(doc, getRendererStyles(settings, theme));
 }
 
@@ -2977,9 +3225,9 @@ function normalizeBrOnlyParagraphs(doc: Document) {
   const body = doc.body;
   if (!body || body.querySelectorAll("p").length > 2) return;
 
-  const containers: Element[] = Array.from(body.querySelectorAll("div, section, article, main")).filter(
-    shouldNormalizeBrParagraphContainer,
-  );
+  const containers: Element[] = Array.from(
+    body.querySelectorAll("div, section, article, main"),
+  ).filter(shouldNormalizeBrParagraphContainer);
   if (shouldNormalizeBrParagraphContainer(body)) containers.push(body);
 
   for (const container of containers) {
@@ -3132,14 +3380,36 @@ function applyRendererSettings(
     }
     renderer.setAttribute("spread", spreadMode);
   } else {
-    // Reflowable: columns, sizes, margins
+    // Reflowable: columns, sizes, margins.
+    // Foliate's `gap` is a percentage that drives BOTH the outer spacing
+    // (col1/col5 centering + page side padding) and the inner column gutter.
+    // The two pages of a double spread are two columns of ONE iframe, so the
+    // center gutter is the multicol column-gap = effective gap / 2. Solving
+    // gutter = margin and outer = margin + breathing room (paper = 99% of the
+    // window, so the pages never touch the window edges even at margin 0)
+    // yields the formulas below. All against the RENDERER width (foliate
+    // resolves the gap % against it), no rounding → exact geometry.
     const isSinglePage = (settings.paginatedLayout ?? "double") === "single";
-    const rendererWidth = Number(renderer.size || 0);
-    const singlePageInlineSize =
-      rendererWidth > 0 ? Math.round(Math.max(980, Math.min(rendererWidth * 0.94, 1600))) : 1280;
-    renderer.setAttribute("max-inline-size", isSinglePage ? `${singlePageInlineSize}px` : "760px");
+    const windowWidth =
+      renderer.clientWidth || window.innerWidth || document.documentElement?.clientWidth || 1280;
+    const margin = settings.pageMargin ?? 40;
+    const paper = windowWidth * 0.99;
+    if (isSinglePage) {
+      // single: outer = col1 (0.5%H + M/2) + side padding (gap_px/2 = M/2)
+      //         = M + 0.5%H. max-inline = col3 + g·H with col3 = paper − M.
+      const g = margin / paper;
+      const inline = paper - margin + g * windowWidth;
+      renderer.setAttribute("max-inline-size", `${inline}px`);
+      renderer.setAttribute("gap", `${g * 100}%`);
+    } else {
+      // double: gutter = M and col3 = paper − M → g = 2M/(0.99H + M),
+      // max-inline-size = (paper − M + g·H)/2.
+      const g = (2 * margin) / (paper + margin);
+      const doublePageColumnSize = (paper - margin + g * windowWidth) / 2;
+      renderer.setAttribute("max-inline-size", `${doublePageColumnSize}px`);
+      renderer.setAttribute("gap", `${g * 100}%`);
+    }
     renderer.setAttribute("max-block-size", "1440px");
-    renderer.setAttribute("gap", isSinglePage ? "1.2%" : "4.5%");
     applyReflowLayoutSettings(view, settings);
   }
 
@@ -3155,6 +3425,14 @@ function applyReflowLayoutSettings(view: FoliateView, settings: ViewSettings) {
     "max-column-count",
     (settings.paginatedLayout ?? "double") === "single" ? "1" : "2",
   );
+
+  // Vertical page margins (the horizontal ones come from the gap + max-inline
+  // sizing in applyRendererSettings).
+  const margin = settings.pageMargin ?? 40;
+  renderer.setAttribute("margin-top", `${margin}px`);
+  renderer.setAttribute("margin-bottom", `${margin}px`);
+  renderer.setAttribute("margin-left", "0px");
+  renderer.setAttribute("margin-right", "0px");
 
   if (settings.viewMode === "scroll") {
     renderer.setAttribute("flow", "scrolled");
@@ -3192,16 +3470,48 @@ function getRendererStyles(settings: ViewSettings, theme: AppTheme): string {
   const layoutScale = settings.fontSize / BASELINE_FONT_SIZE;
   const scaledParagraphSpacing = Math.round(settings.paragraphSpacing * layoutScale);
 
-  // When useBookFonts is enabled (default), do not force the reader font
-  // family onto every element so the book's own fonts (e.g. embedded
-  // @font-face families) render where the book specifies them.
-  const bodyStarFontOverride =
+  // When useBookFonts is enabled (default), do not force the reader font onto
+  // html/body with !important: the book's own font-family (on html, body, or
+  // any element) must win where specified, so body text follows the book too.
+  // The reader font stays as a zero-specificity fallback via :where(). Target
+  // only `html` (not body): body then INHERITS html's font-family, so when the
+  // book sets one on html it propagates to body text instead of body being
+  // pinned to the reader font by a direct rule. When disabled, force the
+  // reader font on html/body and every descendant.
+  //
+  // The monospace rule swaps sides with the same toggle: with book fonts
+  // honored it is zero-specificity (a book's own `pre { font-family: ... }` —
+  // its embedded code font — wins), and when overriding it needs BOTH
+  // !important AND higher specificity, because specificity still breaks ties
+  // between important author declarations: a plain `pre, code, kbd` at (0,0,1)
+  // loses to an authored `body pre { ... !important }` at (0,0,2).
+  // `html body :is(...)` at (0,0,3) outranks both.
+  // Inner code/kbd/samp INSIDE a pre are excluded from the fallback so they
+  // keep INHERITING the book's font from pre (a direct declaration on `code`
+  // would cut the inheritance — `<pre><code>` is the dominant code markup);
+  // standalone inline code still gets the fallback.
+  const readerFontOverride =
     settings.useBookFonts === false
-      ? `body *:not(svg):not(svg *):not(math):not(math *):not(pre):not(pre *):not(code):not(code *):not(kbd):not(kbd *):not(samp):not(samp *) {
+      ? `html, body {
   font-family: var(--readany-font-family) !important;
 }
+body *:not(svg):not(svg *):not(math):not(math *):not(pre):not(pre *):not(code):not(code *):not(kbd):not(kbd *):not(samp):not(samp *) {
+  font-family: var(--readany-font-family) !important;
+}
+html body :is(pre, code, kbd, samp) {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+}
 `
-      : "";
+      : `:where(html) {
+  font-family: var(--readany-font-family);
+}
+:where(pre, :not(pre) > code, :not(pre) > kbd, :not(pre) > samp) {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+:where(pre :is(code, kbd, samp)) {
+  font-family: inherit;
+}
+`;
 
   return `${settings.customFontFaceCSS ? `/* Custom font faces */\n${settings.customFontFaceCSS}\n\n` : ""}/* Font styles */
 html {
@@ -3215,19 +3525,14 @@ html {
 html, body {
   background-color: ${bgColor} !important;
   color: ${fgColor} !important;
-  font-family: var(--readany-font-family) !important;
   font-size: ${settings.fontSize}px !important;
   -webkit-text-size-adjust: none;
   text-size-adjust: none;
 }
 
-${bodyStarFontOverride}
+${readerFontOverride}
 body :not(#__readany_font_size_override):not(svg):not(svg *):not(math):not(math *):not(pre):not(pre *):not(code):not(code *):not(kbd):not(kbd *):not(samp):not(samp *):not(rt):not(rp) {
   font-size: ${settings.fontSize}px !important;
-}
-
-pre, code, kbd, samp {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
 }
 
 /* Line height for text blocks */
@@ -3279,6 +3584,8 @@ pre {
   white-space: pre-wrap !important;
   tab-size: 2;
 }
+
+${settings.justifyBodyText !== false ? getJustifyCss() : ""}
 `;
 }
 
@@ -3317,6 +3624,12 @@ function applyRendererStyles(
     lineHeight: settings.lineHeight,
   });
   const styles = getRendererStyles(settings, theme);
+  // Always unpin first (restores the book's own cascade when justify is
+  // disabled), then re-pin author-aligned <br>-containing blocks.
+  for (const content of getRendererContents(view)) {
+    const doc = content?.doc as Document | undefined;
+    if (doc) syncJustifyForDoc(doc, settings.justifyBodyText !== false);
+  }
   renderer.setStyles(styles);
   syncReaderOverrideStyles(view, styles);
 }
